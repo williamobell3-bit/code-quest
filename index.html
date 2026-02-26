@@ -1,589 +1,861 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Name Game - Multiplayer</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CodeQuest - Learn Python!</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏰</text></svg>">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #root { height: 100%; width: 100%; }
+    body { background: #0F0E17; overflow-x: hidden; }
+  </style>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 </head>
 <body>
-    <div id="root"></div>
-    
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-        
-        // API base URL - defaults to same server
-        const API_BASE = window.location.origin;
-        
-        // Lucide React icons as inline SVG components
-        const Users = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-        );
-        
-        const Copy = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-        );
-        
-        const Check = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-        );
-        
-        const Crown = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-            </svg>
-        );
-        
-        const AlertCircle = ({ className }) => (
-            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        );
+  <div id="root"></div>
+  <script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
 
-        function UsernameMatchGame() {
-          const [state, setState] = useState('home');
-          const [joinStep, setJoinStep] = useState(1);
-          const [hostStep, setHostStep] = useState(1);
-          const [gameCode, setGameCode] = useState('');
-          const [playerName, setPlayerName] = useState('');
-          const [username, setUsername] = useState('');
-          const [gameMode, setGameMode] = useState('classic');
-          const [theme, setTheme] = useState('');
-          const [gameData, setGameData] = useState(null);
-          const [myId, setMyId] = useState(null);
-          const [message, setMessage] = useState('');
-          const [selected, setSelected] = useState('');
-          const [guess, setGuess] = useState('');
-          const [copied, setCopied] = useState(false);
+// ─── Simple Python Interpreter ───
+function runPython(code, userInputs = []) {
+  const output = [];
+  const vars = {};
+  let inputIdx = 0;
 
-          // Poll for game updates
-          useEffect(() => {
-            if (!gameCode) return;
-            
-            const pollGame = async () => {
-              try {
-                const response = await fetch(`${API_BASE}/api/game/${gameCode}`);
-                if (response.ok) {
-                  const data = await response.json();
-                  setGameData(data);
-                }
-              } catch (error) {
-                console.error('Error polling game:', error);
-              }
-            };
-            
-            // Poll every second
-            const interval = setInterval(pollGame, 1000);
-            pollGame(); // Initial poll
-            
-            return () => clearInterval(interval);
-          }, [gameCode]);
-
-          const createGame = async () => {
-            const trimmedName = playerName.trim();
-            const trimmedUsername = username.trim();
-            
-            if (!trimmedName || !trimmedUsername) {
-              setMessage('Enter name and username');
-              return;
-            }
-            
-            if (trimmedName.length < 2 || trimmedUsername.length < 2) {
-              setMessage('Name and username must be at least 2 characters');
-              return;
-            }
-            
-            const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-            const id = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 5);
-            const data = {
-              code: code,
-              mode: gameMode,
-              theme: theme,
-              state: 'lobby',
-              players: [{
-                id: id,
-                name: trimmedName,
-                username: trimmedUsername,
-                isHost: true,
-                active: true,
-                score: 0
-              }],
-              current: null,
-              winner: null
-            };
-            
-            try {
-              const response = await fetch(`${API_BASE}/api/game`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-              });
-              
-              if (response.ok) {
-                setGameCode(code);
-                setMyId(id);
-                setGameData(data);
-                setState('lobby');
-                setHostStep(1);
-                setMessage('');
-              } else {
-                setMessage('Failed to create game');
-              }
-            } catch (error) {
-              setMessage('Connection error. Is the server running?');
-            }
-          };
-
-          const verifyGameCode = async () => {
-            const trimmedCode = gameCode.trim().toUpperCase();
-            
-            if (!trimmedCode) {
-              setMessage('Enter code');
-              return;
-            }
-            
-            try {
-              const response = await fetch(`${API_BASE}/api/game/${trimmedCode}`);
-              
-              if (response.ok) {
-                const data = await response.json();
-                
-                if (data.state !== 'lobby') {
-                  setMessage('Game already started');
-                  return;
-                }
-                
-                setGameCode(trimmedCode);
-                setMessage('');
-                setJoinStep(2);
-              } else {
-                setMessage('Game not found');
-              }
-            } catch (error) {
-              setMessage('Connection error. Is the server running?');
-            }
-          };
-
-          const joinGame = async () => {
-            const trimmedCode = gameCode.trim().toUpperCase();
-            const trimmedName = playerName.trim();
-            const trimmedUsername = username.trim();
-            
-            if (!trimmedName || !trimmedUsername) {
-              setMessage('Enter name and username');
-              return;
-            }
-            
-            if (trimmedName.length < 2 || trimmedUsername.length < 2) {
-              setMessage('Name and username must be at least 2 characters');
-              return;
-            }
-            
-            try {
-              const response = await fetch(`${API_BASE}/api/game/${trimmedCode}`);
-              
-              if (!response.ok) {
-                setMessage('Game not found');
-                return;
-              }
-              
-              const data = await response.json();
-              
-              const nameLower = trimmedName.toLowerCase();
-              const usernameLower = trimmedUsername.toLowerCase();
-              const duplicateName = data.players.some(p => p.name.toLowerCase() === nameLower);
-              const duplicateUsername = data.players.some(p => p.username.toLowerCase() === usernameLower);
-              
-              if (duplicateName) {
-                setMessage('This name is already taken. Choose a different name.');
-                return;
-              }
-              
-              if (duplicateUsername) {
-                setMessage('This username is already taken. Choose a different username.');
-                return;
-              }
-              
-              const id = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 5);
-              data.players.push({
-                id: id,
-                name: trimmedName,
-                username: trimmedUsername,
-                isHost: false,
-                active: true,
-                score: 0
-              });
-              
-              const updateResponse = await fetch(`${API_BASE}/api/game`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-              });
-              
-              if (updateResponse.ok) {
-                setMyId(id);
-                setGameData(data);
-                setState('lobby');
-                setJoinStep(1);
-                setMessage('');
-              } else {
-                setMessage('Failed to join game');
-              }
-            } catch (error) {
-              setMessage('Connection error. Is the server running?');
-            }
-          };
-
-          const updateGame = async (updates) => {
-            const newData = { ...gameData, ...updates };
-            
-            try {
-              await fetch(`${API_BASE}/api/game`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newData)
-              });
-              
-              setGameData(newData);
-            } catch (error) {
-              console.error('Error updating game:', error);
-            }
-          };
-
-          const startGame = () => {
-            if (gameData.players.length < 2) {
-              setMessage('Need at least 2 players to start');
-              return;
-            }
-            
-            const active = gameData.players.filter(p => p.active);
-            const randomIndex = Math.floor(Math.random() * active.length);
-            updateGame({ state: 'playing', current: active[randomIndex].id });
-          };
-
-          const makeGuess = () => {
-            const trimmedGuess = guess.trim();
-            
-            if (!selected || !trimmedGuess) {
-              setMessage('Select a player and enter a guess');
-              return;
-            }
-            
-            const target = gameData.players.find(p => p.id === selected);
-            const correct = trimmedGuess.toLowerCase() === target.name.toLowerCase();
-            
-            if (correct) {
-              const players = gameData.players.map(p => {
-                if (p.id === selected) return { ...p, active: false };
-                if (p.id === gameData.current) return { ...p, score: p.score + 1 };
-                return p;
-              });
-              const remaining = players.filter(p => p.active);
-              
-              if (remaining.length === 1) {
-                updateGame({ players: players, state: 'finished', winner: remaining[0] });
-              } else {
-                updateGame({ players: players });
-              }
-            } else {
-              updateGame({ current: selected });
-            }
-            
-            setSelected('');
-            setGuess('');
-            setMessage('');
-          };
-
-          const copyCode = () => {
-            navigator.clipboard.writeText(gameCode);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          };
-
-          const leaveGame = () => {
-            setState('home');
-            setGameData(null);
-            setGameCode('');
-            setMyId(null);
-            setMessage('');
-            setJoinStep(1);
-            setHostStep(1);
-          };
-
-          const isMyTurn = gameData && gameData.current === myId;
-          const active = gameData ? gameData.players.filter(p => p.active) : [];
-          const amIActive = gameData && gameData.players.find(p => p.id === myId)?.active;
-
-          return (
-            <div className="min-h-screen bg-gradient-to-br from-green-500 via-blue-500 to-purple-600 p-6">
-              <style>{`
-                @keyframes fadeIn {
-                  from {
-                    opacity: 0;
-                    transform: translateY(10px);
-                  }
-                  to {
-                    opacity: 1;
-                    transform: translateY(0);
-                  }
-                }
-                .fade-in {
-                  animation: fadeIn 0.5s ease-out forwards;
-                }
-                .fade-in-delay-1 {
-                  animation: fadeIn 0.5s ease-out 0.1s forwards;
-                  opacity: 0;
-                }
-                .fade-in-delay-2 {
-                  animation: fadeIn 0.5s ease-out 0.2s forwards;
-                  opacity: 0;
-                }
-                .fade-in-delay-3 {
-                  animation: fadeIn 0.5s ease-out 0.3s forwards;
-                  opacity: 0;
-                }
-              `}</style>
-              <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-8 fade-in">
-                <div className="text-center mb-8 fade-in-delay-1">
-                  <h1 className="text-5xl font-bold bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 bg-clip-text text-transparent">The Name Game</h1>
-                  <p className="text-gray-600 mt-2">Guess the real names behind the usernames!</p>
-                </div>
-
-                {state === 'home' && (
-                  <div className="grid md:grid-cols-2 gap-6 fade-in-delay-2">
-                    <button onClick={() => setState('host')} className="p-8 bg-gradient-to-br from-green-500 to-green-700 text-white rounded-2xl hover:opacity-90 transition transform hover:scale-105 shadow-xl">
-                      <Users className="w-16 h-16 mx-auto mb-4" />
-                      <h2 className="text-3xl font-bold">Host Game</h2>
-                    </button>
-                    <button onClick={() => setState('join')} className="p-8 bg-gradient-to-br from-purple-500 to-purple-700 text-white rounded-2xl hover:opacity-90 transition transform hover:scale-105 shadow-xl">
-                      <Copy className="w-16 h-16 mx-auto mb-4" />
-                      <h2 className="text-3xl font-bold">Join Game</h2>
-                    </button>
-                  </div>
-                )}
-
-                {state === 'host' && hostStep === 1 && (
-                  <div className="space-y-4 fade-in-delay-2">
-                    <button onClick={() => setState('home')} className="text-blue-600 hover:underline">← Back</button>
-                    <div className="text-center mb-4">
-                      <h2 className="text-2xl font-bold text-gray-800">Host a Game</h2>
-                      <p className="text-gray-600 mt-1">Step 1: Choose game settings</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Game Mode</label>
-                      <select value={gameMode} onChange={(e) => setGameMode(e.target.value)} className="w-full p-3 border-2 rounded-lg">
-                        <option value="classic">Classic</option>
-                        <option value="speed">Speed Round</option>
-                        <option value="team">Team Mode</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Theme (Optional)</label>
-                      <input 
-                        placeholder="e.g., Movies, Animals, Food..." 
-                        value={theme} 
-                        onChange={(e) => setTheme(e.target.value)} 
-                        onKeyPress={(e) => e.key === 'Enter' && setHostStep(2)}
-                        className="w-full p-3 border-2 rounded-lg" 
-                      />
-                    </div>
-                    <button onClick={() => setHostStep(2)} className="w-full bg-gradient-to-r from-blue-500 to-blue-700 text-white p-4 rounded-lg font-bold">Next</button>
-                  </div>
-                )}
-
-                {state === 'host' && hostStep === 2 && (
-                  <div className="space-y-4 fade-in-delay-2">
-                    <button onClick={() => { setHostStep(1); setMessage(''); }} className="text-blue-600 hover:underline">← Back</button>
-                    <div className="text-center mb-4">
-                      <h2 className="text-2xl font-bold text-gray-800">Host a Game</h2>
-                      <p className="text-gray-600 mt-1">Step 2: Enter your names</p>
-                      <div className="mt-2 text-sm text-gray-600">
-                        <p><span className="font-semibold text-blue-700">Mode:</span> {gameMode.charAt(0).toUpperCase() + gameMode.slice(1)}</p>
-                        {theme && <p><span className="font-semibold text-blue-700">Theme:</span> {theme}</p>}
-                      </div>
-                    </div>
-                    <input placeholder="Your real name" value={playerName} onChange={(e) => setPlayerName(e.target.value)} className="w-full p-3 border-2 rounded-lg" />
-                    <input 
-                      placeholder="Your username" 
-                      value={username} 
-                      onChange={(e) => setUsername(e.target.value)} 
-                      onKeyPress={(e) => e.key === 'Enter' && createGame()}
-                      className="w-full p-3 border-2 rounded-lg" 
-                    />
-                    <button onClick={createGame} className="w-full bg-gradient-to-r from-blue-500 to-blue-700 text-white p-4 rounded-lg font-bold">Create Game</button>
-                    {message && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded flex items-center gap-2 fade-in"><AlertCircle className="w-5 h-5" />{message}</div>}
-                  </div>
-                )}
-
-                {state === 'join' && joinStep === 1 && (
-                  <div className="space-y-4 fade-in-delay-2">
-                    <button onClick={() => setState('home')} className="text-blue-600 hover:underline">← Back</button>
-                    <div className="text-center mb-4">
-                      <h2 className="text-2xl font-bold text-gray-800">Join a Game</h2>
-                      <p className="text-gray-600 mt-1">Step 1: Enter the game code</p>
-                    </div>
-                    <input 
-                      placeholder="Game Code" 
-                      value={gameCode} 
-                      onChange={(e) => setGameCode(e.target.value.toUpperCase())} 
-                      onKeyPress={(e) => e.key === 'Enter' && verifyGameCode()}
-                      className="w-full p-3 border-2 rounded-lg text-center text-2xl font-bold" 
-                      maxLength={4} 
-                    />
-                    <button onClick={verifyGameCode} className="w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white p-4 rounded-lg font-bold">Next</button>
-                    {message && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded flex items-center gap-2 fade-in"><AlertCircle className="w-5 h-5" />{message}</div>}
-                  </div>
-                )}
-
-                {state === 'join' && joinStep === 2 && (
-                  <div className="space-y-4 fade-in-delay-2">
-                    <button onClick={() => { setJoinStep(1); setMessage(''); }} className="text-blue-600 hover:underline">← Back</button>
-                    <div className="text-center mb-4">
-                      <h2 className="text-2xl font-bold text-gray-800">Join a Game</h2>
-                      <p className="text-gray-600 mt-1">Step 2: Enter your names</p>
-                      <p className="text-sm text-purple-700 font-semibold mt-2">Game Code: {gameCode}</p>
-                    </div>
-                    <input placeholder="Your real name" value={playerName} onChange={(e) => setPlayerName(e.target.value)} className="w-full p-3 border-2 rounded-lg" />
-                    <input 
-                      placeholder="Your username" 
-                      value={username} 
-                      onChange={(e) => setUsername(e.target.value)} 
-                      onKeyPress={(e) => e.key === 'Enter' && joinGame()}
-                      className="w-full p-3 border-2 rounded-lg" 
-                    />
-                    <button onClick={joinGame} className="w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white p-4 rounded-lg font-bold">Join Game</button>
-                    {message && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded flex items-center gap-2 fade-in"><AlertCircle className="w-5 h-5" />{message}</div>}
-                  </div>
-                )}
-
-                {state === 'lobby' && gameData && (
-                  <div className="space-y-6 fade-in-delay-2">
-                    <div className="bg-gradient-to-r from-green-100 to-purple-100 p-6 rounded-lg">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-sm text-gray-600">Game Code</p>
-                          <p className="text-3xl font-bold text-blue-700">{gameCode}</p>
-                        </div>
-                        <button onClick={copyCode} className="px-4 py-2 bg-white rounded-lg hover:bg-gray-100">
-                          {copied ? <Check className="w-5 h-5 text-green-600" /> : <Copy className="w-5 h-5" />}
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="font-bold mb-2">Players ({gameData.players.length})</h3>
-                      {gameData.players.map((p, index) => (
-                        <div key={p.id} className={`bg-gray-100 p-3 rounded mb-2 fade-in-delay-${Math.min(index + 1, 3)}`}>
-                          <p className="font-semibold">{p.name} {p.id === myId && '(You)'}</p>
-                          {p.isHost && <p className="text-sm text-gray-600">👑 Host</p>}
-                        </div>
-                      ))}
-                    </div>
-                    {message && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded flex items-center gap-2 fade-in"><AlertCircle className="w-5 h-5" />{message}</div>}
-                    {gameData.players[0].id === myId && (
-                      <button onClick={startGame} className="w-full bg-gradient-to-r from-green-500 to-green-700 text-white p-4 rounded-lg font-bold">Start Game</button>
-                    )}
-                    <button onClick={leaveGame} className="w-full bg-gray-300 text-gray-700 p-3 rounded-lg font-bold hover:bg-gray-400">Leave Game</button>
-                  </div>
-                )}
-
-                {gameData && gameData.state === 'playing' && (
-                  <div className="space-y-6 fade-in-delay-2">
-                    <div className="bg-gradient-to-r from-blue-100 to-purple-100 p-4 rounded-lg">
-                      <p className="text-sm">Current Turn</p>
-                      <p className="text-2xl font-bold">
-                        {gameData.players.find(p => p.id === gameData.current)?.username || 'Unknown'}
-                        {isMyTurn && ' (You!)'}
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-bold mb-2">Active Players ({active.length})</h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        {active.map((p, index) => (
-                          <div key={p.id} className={
-                            p.id === gameData.current 
-                              ? `p-3 rounded bg-purple-100 border-2 border-purple-500 fade-in-delay-${Math.min(index % 3 + 1, 3)}`
-                              : `p-3 rounded bg-gray-100 fade-in-delay-${Math.min(index % 3 + 1, 3)}`
-                          }>
-                            <p className="font-semibold">{p.username}</p>
-                            <p className="text-xs text-gray-600">Score: {p.score}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {!amIActive && (
-                      <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded fade-in">
-                        <p className="font-semibold">You've been eliminated!</p>
-                        <p className="text-sm">Watch the remaining players battle it out.</p>
-                      </div>
-                    )}
-
-                    {isMyTurn && amIActive && (
-                      <div className="space-y-3 bg-green-50 p-4 rounded-lg border-2 border-green-500 fade-in">
-                        <p className="font-bold text-green-700">Your turn! Make a guess:</p>
-                        <select value={selected} onChange={(e) => setSelected(e.target.value)} className="w-full p-3 border-2 rounded-lg">
-                          <option value="">Select a player...</option>
-                          {active.filter(p => p.id !== myId).map(p => (
-                            <option key={p.id} value={p.id}>{p.username}</option>
-                          ))}
-                        </select>
-                        <input 
-                          placeholder="Guess their real name" 
-                          value={guess} 
-                          onChange={(e) => setGuess(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && makeGuess()}
-                          className="w-full p-3 border-2 rounded-lg" 
-                        />
-                        <button onClick={makeGuess} className="w-full bg-gradient-to-r from-blue-500 to-blue-700 text-white p-3 rounded-lg font-bold">Submit Guess</button>
-                        {message && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded flex items-center gap-2 fade-in"><AlertCircle className="w-5 h-5" />{message}</div>}
-                      </div>
-                    )}
-
-                    <button onClick={leaveGame} className="w-full bg-gray-300 text-gray-700 p-3 rounded-lg font-bold hover:bg-gray-400">Leave Game</button>
-                  </div>
-                )}
-
-                {gameData && gameData.state === 'finished' && gameData.winner && (
-                  <div className="text-center space-y-6 fade-in-delay-2">
-                    <div className="bg-gradient-to-r from-yellow-100 to-orange-100 p-8 rounded-lg">
-                      <Crown className="w-20 h-20 mx-auto text-yellow-500 mb-4" />
-                      <h2 className="text-3xl font-bold">Winner!</h2>
-                      <p className="text-2xl text-purple-700">{gameData.winner.username}</p>
-                      <p className="text-gray-600">({gameData.winner.name})</p>
-                    </div>
-                    <div>
-                      <h3 className="font-bold mb-3">Final Scores</h3>
-                      {gameData.players
-                        .sort((a, b) => b.score - a.score)
-                        .map((p, index) => (
-                        <div key={p.id} className={`p-3 rounded mb-2 fade-in-delay-${Math.min(index % 3 + 1, 3)} ${index === 0 ? 'bg-yellow-100 border-2 border-yellow-400' : 'bg-gray-100'}`}>
-                          <p className="font-semibold">
-                            {index + 1}. {p.username} = {p.name}
-                            {p.id === myId && ' (You)'}
-                          </p>
-                          <p className="text-sm">Score: {p.score} correct guess{p.score !== 1 ? 'es' : ''}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <button onClick={leaveGame} className="bg-gradient-to-r from-purple-500 to-purple-700 text-white px-8 py-3 rounded-lg font-bold">Back to Home</button>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
+  const evaluate = (expr, localVars = {}) => {
+    const allVars = { ...vars, ...localVars };
+    let e = expr.trim();
+    if (e.includes("+")) {
+      const parts = splitOutside(e, "+");
+      if (parts.length > 1) {
+        const ev = parts.map((p) => evaluate(p.trim(), localVars));
+        if (ev.every((v) => typeof v === "string")) return ev.join("");
+        if (ev.every((v) => typeof v === "number")) return ev.reduce((a, b) => a + b, 0);
+        return ev.map(String).join("");
+      }
+    }
+    for (const [op, fn] of [[" - ", (a,b)=>a-b], [" * ", (a,b)=>a*b], ["**", (a,b)=>Math.pow(a,b)], [" / ", (a,b)=>a/b], [" % ", (a,b)=>a%b]]) {
+      if (op === "**" ? e.includes("**") : e.includes(op)) {
+        const parts = op === "**" ? e.split("**") : splitOutside(e, op.trim());
+        if (parts.length === 2) { const a = evaluate(parts[0].trim(), localVars), b = evaluate(parts[1].trim(), localVars); if (typeof a === "number" && typeof b === "number") return fn(a, b); }
+      }
+    }
+    for (const op of ["==", "!=", ">=", "<=", ">", "<"]) {
+      if (e.includes(op)) {
+        const parts = splitOutside(e, op);
+        if (parts.length === 2) { const a = evaluate(parts[0].trim(), localVars), b = evaluate(parts[1].trim(), localVars);
+          return op==="=="?a==b : op==="!="?a!=b : op===">="?a>=b : op==="<="?a<=b : op===">"?a>b : a<b;
         }
+      }
+    }
+    if (e.includes(" and ")) { const p = e.split(" and "); return evaluate(p[0].trim(), localVars) && evaluate(p[1].trim(), localVars); }
+    if (e.includes(" or ")) { const p = e.split(" or "); return evaluate(p[0].trim(), localVars) || evaluate(p[1].trim(), localVars); }
+    if (e.startsWith("not ")) return !evaluate(e.slice(4).trim(), localVars);
 
-        ReactDOM.render(<UsernameMatchGame />, document.getElementById('root'));
-    </script>
+    const funcMatch = e.match(/^(\w+)\(([\s\S]*)\)$/);
+    if (funcMatch) {
+      const [, fn, argsStr] = funcMatch;
+      if (fn === "print") {
+        const args = smartSplit(argsStr); let end = "\n"; const filtered = [];
+        for (const a of args) { const t = a.trim(); if (t.startsWith("end=")) end = evaluate(t.slice(4), localVars); else filtered.push(t); }
+        const vals = filtered.map((a) => { const v = evaluate(a.trim(), localVars); return v===undefined?"None":v===true?"True":v===false?"False":String(v); });
+        output.push({ text: vals.join(" "), end }); return undefined;
+      }
+      if (fn === "input") {
+        const prompt = argsStr.trim() ? evaluate(argsStr.trim(), localVars) : "";
+        if (prompt) output.push({ text: String(prompt), end: "" });
+        const val = inputIdx < userInputs.length ? userInputs[inputIdx++] : "user_input";
+        output.push({ text: val, end: "\n", isInput: true }); return val;
+      }
+      if (fn === "int") return parseInt(evaluate(argsStr.trim(), localVars));
+      if (fn === "float") return parseFloat(evaluate(argsStr.trim(), localVars));
+      if (fn === "str") return String(evaluate(argsStr.trim(), localVars));
+      if (fn === "abs") return Math.abs(evaluate(argsStr.trim(), localVars));
+      if (fn === "len") { const v = evaluate(argsStr.trim(), localVars); return typeof v==="string"?v.length:Array.isArray(v)?v.length:0; }
+      if (fn === "round") { const a = smartSplit(argsStr); const n = evaluate(a[0].trim(), localVars); const d = a[1]?evaluate(a[1].trim(), localVars):0; return Number(n.toFixed(d)); }
+      if (fn === "max") { return Math.max(...smartSplit(argsStr).map(a=>evaluate(a.trim(), localVars))); }
+      if (fn === "min") { return Math.min(...smartSplit(argsStr).map(a=>evaluate(a.trim(), localVars))); }
+      if (fn === "pow") { const a = smartSplit(argsStr); return Math.pow(evaluate(a[0].trim(), localVars), evaluate(a[1].trim(), localVars)); }
+      if (fn === "range") {
+        const a = smartSplit(argsStr).map(x=>evaluate(x.trim(), localVars));
+        const start = a.length===1?0:a[0], end = a.length===1?a[0]:a[1], step = a[2]||1;
+        const r = []; for (let i=start; step>0?i<end:i>end; i+=step) r.push(i); return r;
+      }
+      if (fn === "type") { const v = evaluate(argsStr.trim(), localVars); if (typeof v==="number"&&Number.isInteger(v)) return "<class 'int'>"; if (typeof v==="number") return "<class 'float'>"; if (typeof v==="string") return "<class 'str'>"; if (typeof v==="boolean") return "<class 'bool'>"; return "<class 'NoneType'>"; }
+      if (fn === "enumerate") { const a = smartSplit(argsStr); const it = evaluate(a[0].trim(), localVars); const s = a[1]?evaluate(a[1].trim(), localVars):0; return Array.isArray(it)?it.map((v,i)=>[i+s,v]):[]; }
+      if (fn === "list") { const v = evaluate(argsStr.trim(), localVars); return Array.isArray(v)?[...v]:[]; }
+      if (fn === "map") { const a = smartSplit(argsStr); const f = evaluate(a[0].trim(), localVars); const l = evaluate(a[1].trim(), localVars); return typeof f==="function"&&Array.isArray(l)?l.map(f):[]; }
+      if (allVars["__func_"+fn]) {
+        const fd = allVars["__func_"+fn]; const ca = smartSplit(argsStr).map(a=>evaluate(a.trim(), localVars)); const ls = {};
+        fd.params.forEach((p,i)=>{ const pn=p.includes("=")?p.split("=")[0].trim():p.trim(); const dv=p.includes("=")?evaluate(p.split("=")[1].trim(), localVars):undefined; ls[pn]=i<ca.length?ca[i]:dv; });
+        return executeBlock(fd.body, {...allVars,...ls});
+      }
+    }
+    const methodMatch = e.match(/^(\w+)\.(\w+)\((.*)\)$/s);
+    if (methodMatch) { const [,obj,method,mArgs] = methodMatch; if (allVars[obj]!==undefined && method==="append" && Array.isArray(allVars[obj])) { allVars[obj].push(evaluate(mArgs.trim(), localVars)); if (vars[obj]!==undefined) vars[obj]=allVars[obj]; return undefined; } }
+    const lambdaMatch = e.match(/^lambda\s+(\w+)\s*:\s*(.+)$/);
+    if (lambdaMatch) { const [,param,body] = lambdaMatch; return (val) => evaluate(body, {...localVars,[param]:val}); }
+    if (e.startsWith("[") && e.endsWith("]")) { const inner = e.slice(1,-1).trim(); if (!inner) return []; return smartSplit(inner).map(it=>evaluate(it.trim(), localVars)); }
+    if ((e.startsWith('"')&&e.endsWith('"'))||(e.startsWith("'")&&e.endsWith("'"))) return e.slice(1,-1);
+    if (e.startsWith('f"')&&e.endsWith('"')) return e.slice(2,-1).replace(/\{([^}]+)\}/g, (_,ex)=>String(evaluate(ex, localVars)));
+    if (e === "True") return true; if (e === "False") return false; if (e === "None") return undefined;
+    if (!isNaN(e) && e !== "") return Number(e);
+    if (allVars[e] !== undefined) return allVars[e];
+    const subMatch = e.match(/^(\w+)\[(.+)\]$/);
+    if (subMatch) { const arr = allVars[subMatch[1]]; const idx = evaluate(subMatch[2], localVars); if (arr!==undefined) return Array.isArray(arr)?arr[idx]:typeof arr==="string"?arr[idx]:undefined; }
+    return e;
+  };
+
+  function splitOutside(str, delim) {
+    const parts = []; let cur = "", inStr = false, sc = "", depth = 0;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      if (!inStr&&(ch==='"'||ch==="'")) { inStr=true; sc=ch; cur+=ch; continue; }
+      if (inStr&&ch===sc) { inStr=false; cur+=ch; continue; }
+      if (!inStr&&(ch==="("||ch==="[")) { depth++; cur+=ch; continue; }
+      if (!inStr&&(ch===")"||ch==="]")) { depth--; cur+=ch; continue; }
+      if (!inStr&&depth===0&&str.slice(i,i+delim.length)===delim) { parts.push(cur); cur=""; i+=delim.length-1; continue; }
+      cur+=ch;
+    }
+    parts.push(cur); return parts.length>1?parts:[str];
+  }
+  function smartSplit(str) {
+    const parts = []; let cur = "", depth = 0, inStr = false, sc = "";
+    for (const ch of str) {
+      if (!inStr&&(ch==='"'||ch==="'")) { inStr=true; sc=ch; cur+=ch; continue; }
+      if (inStr&&ch===sc) { inStr=false; cur+=ch; continue; }
+      if (!inStr&&(ch==="("||ch==="[")) { depth++; cur+=ch; continue; }
+      if (!inStr&&(ch===")"||ch==="]")) { depth--; cur+=ch; continue; }
+      if (!inStr&&depth===0&&ch===",") { parts.push(cur); cur=""; continue; }
+      cur+=ch;
+    }
+    if (cur.trim()) parts.push(cur); return parts;
+  }
+  function getIndent(line) { const m = line.match(/^(\s*)/); return m?m[1].length:0; }
+  function getBlock(lines, start, base) { const b = []; for (let i=start;i<lines.length;i++) { if (lines[i].trim()==="") continue; if (getIndent(lines[i])>base) b.push(lines[i]); else break; } return b; }
+
+  function executeBlock(blockLines, localVars = {}) {
+    let i = 0;
+    while (i < blockLines.length) {
+      const line = blockLines[i].trim();
+      if (!line || line.startsWith("#")) { i++; continue; }
+      const indent = getIndent(blockLines[i]);
+      if (line.startsWith("return ")) return evaluate(line.slice(7), localVars);
+      if (line === "return") return undefined;
+      if (line === "break") return "__BREAK__";
+      if (line === "continue") return "__CONTINUE__";
+
+      if (line.startsWith("def ")) {
+        const m = line.match(/^def\s+(\w+)\(([^)]*)\)\s*:/);
+        if (m) { const body = getBlock(blockLines, i+1, indent); vars["__func_"+m[1]] = { params: m[2]?m[2].split(",").map(p=>p.trim()):[], body }; localVars["__func_"+m[1]] = vars["__func_"+m[1]]; i+=1+body.length; continue; }
+      }
+      if (line.startsWith("for ")) {
+        const m = line.match(/^for\s+(.+)\s+in\s+(.+)\s*:/);
+        if (m) { const body = getBlock(blockLines, i+1, indent); const it = evaluate(m[2].trim(), localVars);
+          if (Array.isArray(it)) for (const item of it) {
+            if (m[1].includes(",")) { const vn = m[1].split(",").map(v=>v.trim()); if (Array.isArray(item)) vn.forEach((v,idx)=>{vars[v]=item[idx];localVars[v]=item[idx];}); }
+            else { vars[m[1].trim()]=item; localVars[m[1].trim()]=item; }
+            const r = executeBlock(body, localVars); if (r==="__BREAK__") break; if (r!==undefined&&r!=="__CONTINUE__") return r;
+          }
+          i+=1+body.length; continue;
+        }
+      }
+      if (line.startsWith("while ")) {
+        const cond = line.slice(6,-1).trim(); const body = getBlock(blockLines, i+1, indent); let s = 0;
+        while (evaluate(cond, localVars) && s<500) { s++; const r = executeBlock(body, localVars); if (r==="__BREAK__") break; if (r!==undefined&&r!=="__CONTINUE__") return r; }
+        i+=1+body.length; continue;
+      }
+      if (line.startsWith("if ")) {
+        const cond = line.slice(3,-1).trim(); const body = getBlock(blockLines, i+1, indent);
+        let consumed = 1+body.length; const branches = [{cond, body}]; let j = i+consumed;
+        while (j < blockLines.length) {
+          const nl = blockLines[j]?.trim();
+          if (nl?.startsWith("elif ")) { const eb = getBlock(blockLines, j+1, indent); branches.push({cond:nl.slice(5,-1).trim(), body:eb}); consumed+=1+eb.length; j+=1+eb.length; }
+          else if (nl==="else:") { const eb = getBlock(blockLines, j+1, indent); branches.push({cond:null, body:eb}); consumed+=1+eb.length; break; }
+          else break;
+        }
+        for (const br of branches) { if (br.cond===null||evaluate(br.cond, localVars)) { const r = executeBlock(br.body, localVars); if (r!==undefined) return r; break; } }
+        i+=consumed; continue;
+      }
+      if (line.includes("+=")) { const [vn, val] = line.split("+="); const v = vn.trim(); vars[v]=(vars[v]||0)+evaluate(val.trim(), localVars); localVars[v]=vars[v]; i++; continue; }
+      if (line.includes("-=")) { const [vn, val] = line.split("-="); const v = vn.trim(); vars[v]=(vars[v]||0)-evaluate(val.trim(), localVars); localVars[v]=vars[v]; i++; continue; }
+      if (line.includes("=") && !line.includes("==") && !line.includes("!=") && !line.includes(">=") && !line.includes("<=") && !line.startsWith("print") && !line.startsWith("if") && !line.startsWith("while") && !line.startsWith("for") && !line.startsWith("return")) {
+        const eq = line.indexOf("="); const before = line.slice(0,eq).trim(); const after = line.slice(eq+1).trim();
+        if (!before.includes("(")&&!before.includes(">")&&!before.includes("<")&&!before.includes("!")) { const val = evaluate(after, localVars); vars[before]=val; localVars[before]=val; }
+        else evaluate(line, localVars);
+        i++; continue;
+      }
+      evaluate(line, localVars); i++;
+    }
+    return undefined;
+  }
+
+  try { executeBlock(code.split("\n").map(l=>l.replace(/\r/g,""))); }
+  catch (err) { output.push({ text: "Error: " + err.message, end: "\n", isError: true }); }
+  let finalOutput = ""; for (const o of output) finalOutput += o.text + (o.end !== undefined ? o.end : "");
+  return { output: finalOutput.trimEnd(), items: output };
+}
+
+const CHARACTERS = {
+  bunny: { name: "Bun-Bun", emoji: "\u{1F430}", color: "#FF8FAB", role: "Your First Time guide!" },
+  fox: { name: "Foxley", emoji: "\u{1F98A}", color: "#FF9F43", role: "Beginner mentor" },
+  owl: { name: "Professor Hoot", emoji: "\u{1F989}", color: "#6C5CE7", role: "Intermediate teacher" },
+  dragon: { name: "Pyro", emoji: "\u{1F409}", color: "#E84393", role: "Advanced challenger" },
+};
+
+const CURRICULUM = [
+  { tier: "First Time", tierColor: "#88D8B0", tierBg: "linear-gradient(135deg, #88D8B0 0%, #6FCF97 100%)", character: "bunny",
+    units: [{ title: "Say Hello!", desc: "Your very first code", stones: [
+      { title: "Hello World", sections: [
+        { type: "lesson", title: "What is Code?", content: "Code is a set of instructions that tells a computer what to do. Think of it like a recipe \u2014 each line is a step!" },
+        { type: "exercise", title: "Your First Program", content: "Let's write your very first program!", question: 'Use the print command to display the message "Hello, World!" on screen.', answer: 'print("Hello, World!")', check: (v) => v.includes("print") && v.includes("Hello") && v.includes("World") },
+        { type: "exercise", title: "Say Your Name", content: "Now make the computer greet you!", question: 'Use print to display a message that says "My name is" followed by your name.', answer: 'print("My name is Alex")', check: (v) => v.includes("print") && v.includes("My name") },
+      ]},
+      { title: "Print Party", sections: [
+        { type: "lesson", title: "The print() Function", content: "There's a special command called print that lets you show a message on the screen. You just type the word print, then put parentheses around whatever you want to say — and wrap your message in quotes so the computer knows it's text! Try it on the next step." },
+        { type: "exercise", title: "Multiple Lines", content: "Print two different messages!", question: 'Write two separate print commands. One should say "I love coding!" and the other should say "This is fun!"', answer: 'print("I love coding!")\nprint("This is fun!")', check: (v) => (v.match(/print/g)||[]).length >= 2 },
+        { type: "minigame", title: "Print Puzzle", gameType: "codePuzzle" },
+      ]},
+      { title: "Text & Strings", sections: [
+        { type: "lesson", title: "What are Strings?", content: "In coding, any piece of text is called a 'string' — like a string of letters! Whenever you want to use text in your code, you need to wrap it in quotation marks so the computer knows it's words, not a command." },
+        { type: "exercise", title: "String Practice", content: "Create a variable to store text!", question: 'Create a variable called greeting that stores the text "Hi there!" then use print to display it.', answer: 'greeting = "Hi there!"\nprint(greeting)', check: (v) => v.includes("greeting") && v.includes("=") && v.includes("print") },
+        { type: "exercise", title: "Joining Strings", content: "Join strings with the + sign!", question: 'Create two variables: one holding "Hello" and another holding " World". Then print them combined together using the + sign.', answer: 'first = "Hello"\nsecond = " World"\nprint(first + second)', check: (v) => v.includes("+") && v.includes("print") },
+      ]},
+      { title: "Variables Vault", sections: [
+        { type: "lesson", title: "What are Variables?", content: "Variables are like labeled boxes that store information. You pick a name for your box, then use the equals sign to put something inside it. Later, you can use that name to get the value back! For example, you could make a box called 'age' and put the number 10 inside it." },
+        { type: "exercise", title: "Make a Variable", content: "Create your own variables!", question: 'Create a variable called favorite_color and set it to "blue", then print it out.', answer: 'favorite_color = "blue"\nprint(favorite_color)', check: (v) => v.includes("favorite_color") && v.includes("print") },
+        { type: "minigame", title: "Variable Match", gameType: "bugSquash" },
+      ]},
+      { title: "Input Magic", sections: [
+        { type: "lesson", title: "Getting User Input", content: "You can make your program ask the user a question and wait for their answer! There's a command called input that shows a question on screen, then saves whatever the person types. You can store their answer in a variable so you can use it later." },
+        { type: "exercise", title: "Ask a Question", content: "Make an interactive program!", question: 'Use input to ask the user "What is your name?" Store their answer in a variable called name, then print a greeting using their name.', answer: 'name = input("What is your name? ")\nprint("Hello, " + name)', check: (v) => v.includes("input") && v.includes("print") },
+        { type: "exercise", title: "Two Questions", content: "Ask two questions!", question: 'Ask the user two questions: their name and their favorite food. Then print a sentence that says their name "loves" their food.', answer: 'name = input("Name? ")\nfood = input("Favorite food? ")\nprint(name + " loves " + food)', check: (v) => (v.match(/input/g)||[]).length >= 2 },
+      ]},
+      { title: "First Review", sections: [
+        { type: "lesson", title: "What You Learned!", content: "Amazing! You learned: print, strings, variables, and input. You're ready to move on!" },
+        { type: "exercise", title: "Final Challenge", content: "Put it all together!", question: 'Ask the user for their name and their age using input. Then print a message that includes both their name and age.', answer: 'name = input("Name? ")\nage = input("Age? ")\nprint("Hi " + name + ", you are " + age + "!")', check: (v) => (v.match(/input/g)||[]).length >= 2 && v.includes("print") },
+        { type: "minigame", title: "Speed Code!", gameType: "speedType" },
+      ]},
+    ]}]
+  },
+  { tier: "Beginner", tierColor: "#63B3ED", tierBg: "linear-gradient(135deg, #63B3ED 0%, #4299E1 100%)", character: "fox",
+    units: [{ title: "Working with Numbers", desc: "Math meets code!", stones: [
+      { title: "Number Types", sections: [
+        { type: "lesson", title: "Integers & Floats", content: "There are two kinds of numbers in Python. Whole numbers like 42 or -7 are called 'integers.' Numbers with a decimal point like 3.14 or 0.5 are called 'floats.' Python can work with both!" },
+        { type: "exercise", title: "Number Variables", content: "Store some numbers!", question: 'Create a variable called whole set to 42 and another called decimal set to 3.14, then print both of them.', answer: 'whole = 42\ndecimal = 3.14\nprint(whole)\nprint(decimal)', check: (v) => v.includes("42") && v.includes("3.14") && v.includes("print") },
+        { type: "exercise", title: "Type Check", content: "Find out value types!", question: 'Use the type command inside print to check what type the values 42, 3.14, and "hello" are.', answer: 'print(type(42))\nprint(type(3.14))\nprint(type("hello"))', check: (v) => v.includes("type") },
+      ]},
+      { title: "Math Operations", sections: [
+        { type: "lesson", title: "Basic Math", content: "Python can do math just like a calculator! You can add with the plus sign, subtract with minus, multiply with an asterisk, and divide with a forward slash. There's even a double-star for powers (like squaring a number) and a percent sign to get the remainder after dividing." },
+        { type: "exercise", title: "Calculator Time", content: "Do some math!", question: 'Print the results of these math problems: 15 + 27, then 100 - 37, then 8 * 6, then 45 / 9.', answer: 'print(15 + 27)\nprint(100 - 37)\nprint(8 * 6)\nprint(45 / 9)', check: (v) => v.includes("+") && v.includes("*") },
+        { type: "minigame", title: "Math Bug Hunt", gameType: "bugSquash" },
+      ]},
+      { title: "Number Tricks", sections: [
+        { type: "lesson", title: "Converting Types", content: "Sometimes you need to change one type of value into another — this is called 'casting.' For instance, if someone types in a number, it comes in as text. You need to convert it to a real number before you can do math with it. Python has built-in tools to convert between integers, decimals, and text." },
+        { type: "exercise", title: "Type Casting", content: "Convert types!", question: 'Convert the text "42" into an integer, the number 10 into a float, and 3.14 into an integer. Print each result.', answer: 'print(int("42"))\nprint(float(10))\nprint(int(3.14))', check: (v) => v.includes("int(") && v.includes("float(") },
+        { type: "exercise", title: "Age Calculator", content: "Build something useful!", question: 'Ask the user for their birth year, convert it to a number, calculate their age by subtracting from 2025, then print a message with their age.', answer: 'year = int(input("Birth year? "))\nage = 2025 - year\nprint("You are " + str(age) + " years old!")', check: (v) => v.includes("int(") && v.includes("input") },
+      ]},
+      { title: "Comparisons", sections: [
+        { type: "lesson", title: "Comparing Values", content: "You can ask Python to compare two values and it'll tell you True or False! You can check if things are equal, not equal, greater than, less than, and more. Double-equals checks if two things are the same (single equals is for storing values — don't mix them up!)." },
+        { type: "exercise", title: "True or False?", content: "Try comparisons!", question: 'Print the results of these comparisons: Is 10 greater than 5? Is 3 equal to 3? Is 7 less than 2? Is 10 not equal to 10?', answer: 'print(10 > 5)\nprint(3 == 3)\nprint(7 < 2)\nprint(10 != 10)', check: (v) => v.includes("print") && (v.includes(">")||v.includes("<")||v.includes("==")) },
+        { type: "minigame", title: "Comparison Rush", gameType: "speedType" },
+      ]},
+      { title: "Math Functions", sections: [
+        { type: "lesson", title: "Built-in Math", content: "Python comes with handy math tools built right in! You can get the absolute value of a number (how far it is from zero), round a decimal to the nearest whole number, find the biggest or smallest number in a group, and raise numbers to a power — all without writing the math yourself." },
+        { type: "exercise", title: "Function Fun", content: "Use math functions!", question: 'Use built-in math functions to print: the absolute value of -15, 3.7 rounded, the max of 10/20/5, and the min of 10/20/5.', answer: 'print(abs(-15))\nprint(round(3.7))\nprint(max(10, 20, 5))\nprint(min(10, 20, 5))', check: (v) => v.includes("abs(") && v.includes("round(") },
+        { type: "exercise", title: "Number Formatter", content: "Round to 2 decimals!", question: 'Divide 10 by 3, round the result to 2 decimal places, and print it.', answer: 'result = round(10/3, 2)\nprint(result)', check: (v) => v.includes("round(") && v.includes("print") },
+      ]},
+      { title: "Numbers Review", sections: [
+        { type: "lesson", title: "Numbers Mastered!", content: "You can now work with numbers, math, casting, comparisons, and functions!" },
+        { type: "exercise", title: "Tip Calculator", content: "Build a tip calculator!", question: 'Ask the user for a bill amount, convert it to a decimal number, calculate a 15% tip, then print the tip rounded to 2 decimal places.', answer: 'bill = float(input("Bill: "))\ntip = bill * 0.15\nprint("Tip: " + str(round(tip, 2)))', check: (v) => v.includes("float(") && v.includes("0.15") },
+        { type: "minigame", title: "Math Master", gameType: "codePuzzle" },
+      ]},
+    ]}]
+  },
+  { tier: "Beginner-Intermediate", tierColor: "#F6AD55", tierBg: "linear-gradient(135deg, #F6AD55 0%, #ED8936 100%)", character: "fox",
+    units: [{ title: "If/Else Logic", desc: "Making decisions in code", stones: [
+      { title: "If Statements", sections: [
+        { type: "lesson", title: "Making Decisions", content: "What if you want your code to do different things depending on the situation? That's where 'if' statements come in! You give the computer a condition to check, and if it's true, it runs the indented code below. If it's not true, it skips right over it. Think of it like: 'If it's raining, bring an umbrella!'" },
+        { type: "exercise", title: "First If", content: "Write a condition!", question: 'Set a variable age to 15. Write an if statement that checks if age is 13 or more, and if so, prints "You are a teenager!"', answer: 'age = 15\nif age >= 13:\n    print("You are a teenager!")', check: (v) => v.includes("if") && v.includes("print") },
+        { type: "exercise", title: "If-Else", content: "Add an else!", question: 'Set a variable num to 5. If it is greater than 0, print "Positive!" Otherwise print "Not positive!"', answer: 'num = 5\nif num > 0:\n    print("Positive!")\nelse:\n    print("Not positive!")', check: (v) => v.includes("if") && v.includes("else") },
+      ]},
+      { title: "Elif Chains", sections: [
+        { type: "lesson", title: "Multiple Conditions", content: "What if you have more than two options? Use 'elif' (short for 'else if') to check additional conditions! Your program checks each condition from top to bottom and runs whichever one is true first. You can have as many elif branches as you need, plus an else at the end for everything that didn't match." },
+        { type: "exercise", title: "Grade Checker", content: "Build a grade checker!", question: 'Set a score to 85. Use if, elif, and else to print "A" for 90+, "B" for 80+, "C" for 70+, or "F" for anything lower.', answer: 'score = 85\nif score >= 90:\n    print("A")\nelif score >= 80:\n    print("B")\nelif score >= 70:\n    print("C")\nelse:\n    print("F")', check: (v) => v.includes("if") && v.includes("elif") },
+        { type: "minigame", title: "Logic Puzzle", gameType: "codePuzzle" },
+      ]},
+      { title: "And/Or/Not", sections: [
+        { type: "lesson", title: "Logical Operators", content: "You can combine conditions using special words! 'and' means BOTH conditions must be true. 'or' means at LEAST ONE must be true. 'not' flips a condition — it turns true into false and false into true. For example: 'if it's sunny AND warm, go to the beach!'" },
+        { type: "exercise", title: "Combine Conditions", content: "Use and/or!", question: 'Set age to 14 and height to 50. Use "and" to check if both age is at least 12 AND height is at least 48. Print "You can ride!" or "Sorry!" accordingly.', answer: 'age = 14\nheight = 50\nif age >= 12 and height >= 48:\n    print("You can ride!")\nelse:\n    print("Sorry!")', check: (v) => v.includes("and") && v.includes("if") },
+        { type: "minigame", title: "Bug Squash", gameType: "bugSquash" },
+      ]},
+      { title: "Nested Ifs", sections: [
+        { type: "lesson", title: "Ifs Inside Ifs", content: "You can put an if statement inside another if statement — this is called 'nesting.' It's like asking a follow-up question: 'Are you hungry? If yes, do you want pizza or pasta?' The inner if only gets checked when the outer if is already true." },
+        { type: "exercise", title: "Nested Logic", content: "Create nested conditions!", question: 'Create two variables: raining and umbrella (both set to "yes"). If it is raining, check if you have an umbrella. Print the right message for each situation.', answer: 'raining = "yes"\numbrella = "yes"\nif raining == "yes":\n    if umbrella == "yes":\n        print("Go outside!")\n    else:\n        print("Stay inside!")\nelse:\n    print("Enjoy the sun!")', check: (v) => (v.match(/if/g)||[]).length >= 2 },
+        { type: "exercise", title: "Menu System", content: "Build a menu!", question: 'Print two menu options ("1. Greet" and "2. Math"). Set a choice variable to "1", then use if/else to respond differently based on the choice.', answer: 'print("1. Greet")\nprint("2. Math")\nchoice = "1"\nif choice == "1":\n    print("Hello!")\nelse:\n    print("2+2 = 4")', check: (v) => v.includes("if") && v.includes("print") },
+      ]},
+      { title: "Boolean Basics", sections: [
+        { type: "lesson", title: "True & False", content: "In Python, there's a special type called a 'boolean' that can only be one of two things: True or False. Every comparison you make gives back a boolean. They're the foundation of all the decision-making your code does! Think of them as yes/no answers." },
+        { type: "exercise", title: "Boolean Vars", content: "Work with booleans!", question: 'Create two boolean variables: is_weekend (True) and is_holiday (False). If either one is true, print "Day off!" Otherwise print "Work day!"', answer: 'is_weekend = True\nis_holiday = False\nif is_weekend or is_holiday:\n    print("Day off!")\nelse:\n    print("Work day!")', check: (v) => v.includes("True") && v.includes("if") },
+        { type: "minigame", title: "True/False Rush", gameType: "speedType" },
+      ]},
+      { title: "Logic Review", sections: [
+        { type: "lesson", title: "Logic Complete!", content: "Mastered: if/elif/else, logical operators, nesting, booleans!" },
+        { type: "exercise", title: "Adventure Game", content: "Mini text adventure!", question: 'Print "You find a door and a window." Set a choice to "door". Use if/else so picking the door prints "You find treasure!" and anything else prints "You escape!"', answer: 'print("You find a door and a window.")\nchoice = "door"\nif choice == "door":\n    print("You find treasure!")\nelse:\n    print("You escape!")', check: (v) => v.includes("if") && v.includes("print") },
+        { type: "minigame", title: "Logic Master", gameType: "codePuzzle" },
+      ]},
+    ]}]
+  },
+  { tier: "Intermediate", tierColor: "#A78BFA", tierBg: "linear-gradient(135deg, #A78BFA 0%, #7C3AED 100%)", character: "owl",
+    units: [{ title: "Loops & Iteration", desc: "Repeat, repeat, repeat!", stones: [
+      { title: "For Loops", sections: [
+        { type: "lesson", title: "Repeating Code", content: "Instead of writing the same thing over and over, you can use a 'for loop' to repeat code automatically! You tell the computer how many times to repeat, and it does the work for you. It's like saying 'do this 5 times' — the computer counts for you and runs your code each time." },
+        { type: "exercise", title: "Count Up", content: "Write a loop!", question: 'Use a for loop with range to print every number from 1 to 10.', answer: 'for i in range(1, 11):\n    print(i)', check: (v) => v.includes("for") && v.includes("range") },
+        { type: "exercise", title: "Sum Numbers", content: "Add in a loop!", question: 'Use a for loop to add up all numbers from 1 to 100, then print the total.', answer: 'total = 0\nfor i in range(1, 101):\n    total += i\nprint(total)', check: (v) => v.includes("for") && v.includes("+=") },
+      ]},
+      { title: "While Loops", sections: [
+        { type: "lesson", title: "Loop Until Done", content: "A 'while loop' keeps repeating as long as a condition stays true — it's like saying 'keep going until you're done.' You set up a condition, and the loop checks it each time. When the condition finally becomes false, the loop stops. Just make sure the condition eventually changes, or the loop will go on forever!" },
+        { type: "exercise", title: "Countdown", content: "Build a countdown!", question: 'Use a while loop to count down from 10 to 1, printing each number, then print "Liftoff!" at the end.', answer: 'count = 10\nwhile count > 0:\n    print(count)\n    count -= 1\nprint("Liftoff!")', check: (v) => v.includes("while") && v.includes("Liftoff") },
+        { type: "minigame", title: "Loop Challenge", gameType: "bugSquash" },
+      ]},
+      { title: "Loop Patterns", sections: [
+        { type: "lesson", title: "Nested Loops", content: "You can put a loop inside another loop! The inner loop runs completely every time the outer loop goes around once. It's like a clock — the minute hand (inner loop) goes all the way around for every step of the hour hand (outer loop). This is great for making grids and patterns!" },
+        { type: "exercise", title: "Star Rectangle", content: "Make a pattern!", question: 'Use two nested for loops to print a rectangle of stars that is 3 rows tall and 5 stars wide.', answer: 'for i in range(3):\n    for j in range(5):\n        print("*", end=" ")\n    print()', check: (v) => (v.match(/for/g)||[]).length >= 2 },
+        { type: "minigame", title: "Pattern Puzzle", gameType: "codePuzzle" },
+      ]},
+      { title: "Break & Continue", sections: [
+        { type: "lesson", title: "Loop Control", content: "Sometimes you need to escape a loop early or skip a round. The word 'break' lets you exit a loop immediately — like an emergency stop button. The word 'continue' skips the rest of the current round and jumps straight to the next one. These give you fine control over how your loops behave!" },
+        { type: "exercise", title: "Number Finder", content: "Use break!", question: 'Loop through numbers 1 to 20. When you find one divisible by 7, print it and stop the loop using break.', answer: 'for i in range(1, 21):\n    if i % 7 == 0:\n        print(i)\n        break', check: (v) => v.includes("break") },
+        { type: "exercise", title: "Skip Odds", content: "Use continue!", question: 'Loop through numbers 1 to 20 but skip the odd ones using continue. Only print the even numbers.', answer: 'for i in range(1, 21):\n    if i % 2 != 0:\n        continue\n    print(i)', check: (v) => v.includes("continue") },
+      ]},
+      { title: "Lists & Loops", sections: [
+        { type: "lesson", title: "Looping Lists", content: "One of the most useful things about loops is going through a list of items one by one! Instead of counting numbers, you can loop through names, foods, colors — anything in a list. Each time around, the loop grabs the next item for you to work with." },
+        { type: "exercise", title: "List Loop", content: "Loop through a list!", question: 'Create a list of three colors. Loop through it and print each color with a number in front (like "1. red", "2. blue").', answer: 'colors = ["red", "blue", "green"]\nfor i, color in enumerate(colors, 1):\n    print(str(i) + ". " + color)', check: (v) => v.includes("for") && v.includes("[") },
+        { type: "minigame", title: "Speed Loops", gameType: "speedType" },
+      ]},
+      { title: "Loops Review", sections: [
+        { type: "lesson", title: "Loop Legend!", content: "Mastered: for, while, nested loops, break, continue, list loops!" },
+        { type: "exercise", title: "FizzBuzz", content: "The classic!", question: 'Loop from 1 to 30. For multiples of both 3 and 5 print "FizzBuzz", for multiples of 3 print "Fizz", for multiples of 5 print "Buzz", otherwise print the number.', answer: 'for i in range(1, 31):\n    if i % 3 == 0 and i % 5 == 0:\n        print("FizzBuzz")\n    elif i % 3 == 0:\n        print("Fizz")\n    elif i % 5 == 0:\n        print("Buzz")\n    else:\n        print(i)', check: (v) => v.includes("Fizz") && v.includes("Buzz") },
+        { type: "minigame", title: "Loop Master", gameType: "codePuzzle" },
+      ]},
+    ]}]
+  },
+  { tier: "Advanced", tierColor: "#F56565", tierBg: "linear-gradient(135deg, #F56565 0%, #E53E3E 100%)", character: "dragon",
+    units: [{ title: "Functions", desc: "Build reusable code blocks", stones: [
+      { title: "Defining Functions", sections: [
+        { type: "lesson", title: "What are Functions?", content: "A function is a reusable block of code with a name. Instead of writing the same steps over and over, you wrap them in a function and just call its name whenever you need it! Functions can take in information (called 'parameters'), do something with it, and give back a result." },
+        { type: "exercise", title: "First Function", content: "Create a function!", question: 'Create a function called double that takes a number and returns it multiplied by 2. Then print the result of calling it with 5.', answer: 'def double(n):\n    return n * 2\n\nprint(double(5))', check: (v) => v.includes("def") && v.includes("return") },
+        { type: "exercise", title: "Multiple Params", content: "Multiple parameters!", question: 'Create a function called add_three that takes three numbers and returns their sum. Print the result of calling it with 10, 20, and 30.', answer: 'def add_three(a, b, c):\n    return a + b + c\n\nprint(add_three(10, 20, 30))', check: (v) => v.includes("def") && v.includes("return") },
+      ]},
+      { title: "Return Values", sections: [
+        { type: "lesson", title: "Returning Data", content: "When a function finishes its work, it can send a value back using 'return.' Think of it like ordering food — you give the kitchen your order (the parameters), they cook it (the function runs), and they hand back your meal (the return value). You can then store or use that returned value however you want!" },
+        { type: "exercise", title: "Max of Three", content: "Find the biggest!", question: 'Create a function that takes three numbers and returns the biggest one using if/elif/else. Test it by printing the result with 3, 7, and 5.', answer: 'def max_of_three(a, b, c):\n    if a >= b and a >= c:\n        return a\n    elif b >= c:\n        return b\n    else:\n        return c\n\nprint(max_of_three(3, 7, 5))', check: (v) => v.includes("def") && v.includes("return") && v.includes("if") },
+        { type: "minigame", title: "Function Fix", gameType: "bugSquash" },
+      ]},
+      { title: "Scope", sections: [
+        { type: "lesson", title: "Variable Scope", content: "Variables created inside a function only exist inside that function — this is called 'local scope.' It's like writing on a whiteboard in a classroom: when you leave the room, the writing stays behind. Variables outside functions are 'global' and can be seen everywhere." },
+        { type: "exercise", title: "Scope Practice", content: "Understand scope!", question: 'Create a global variable name set to "World". Write a function called greet that creates a local variable greeting set to "Hello" and returns them combined. Print the result.', answer: 'name = "World"\n\ndef greet():\n    greeting = "Hello"\n    return greeting + " " + name\n\nprint(greet())', check: (v) => v.includes("def") && v.includes("return") },
+        { type: "exercise", title: "List Tracker", content: "Track state!", question: 'Create an empty list called history. Write a function add_entry that appends an item to the list and returns how many items are in it. Add a couple entries and print the list.', answer: 'history = []\n\ndef add_entry(item):\n    history.append(item)\n    return len(history)\n\nadd_entry("a")\nadd_entry("b")\nprint(history)', check: (v) => v.includes("def") && v.includes("append") },
+      ]},
+      { title: "Default Args", sections: [
+        { type: "lesson", title: "Default Parameters", content: "You can give your function parameters a default value — a backup option that gets used if nothing else is provided. It's like a drink order: 'I'll have coffee, and if they don't ask about size, make it a medium.' This makes your functions more flexible and easier to use!" },
+        { type: "exercise", title: "Flexible Function", content: "Use defaults!", question: 'Create a function called power that takes a base and an optional exponent (default 2). It should return the base raised to the exponent. Test it with and without the second argument.', answer: 'def power(base, exp=2):\n    return base ** exp\n\nprint(power(3))\nprint(power(2, 3))', check: (v) => v.includes("def") && v.includes("return") },
+        { type: "minigame", title: "Args Puzzle", gameType: "codePuzzle" },
+      ]},
+      { title: "Lambda & Map", sections: [
+        { type: "lesson", title: "Quick Functions", content: "Sometimes you need a tiny function that only does one simple thing — like doubling a number. Python has a shortcut called 'lambda' that lets you create these mini-functions in a single line. There's also a tool called 'map' that applies a function to every item in a list, saving you from writing a loop!" },
+        { type: "exercise", title: "Lambda Time", content: "Write lambda functions!", question: 'Create a lambda function that squares a number. Use map to apply it to the list [1, 2, 3, 4, 5] and print the results.', answer: 'square = lambda x: x ** 2\nnums = [1, 2, 3, 4, 5]\nresult = list(map(square, nums))\nprint(result)', check: (v) => v.includes("lambda") && v.includes("map") },
+        { type: "minigame", title: "Lambda Speed", gameType: "speedType" },
+      ]},
+      { title: "Functions Review", sections: [
+        { type: "lesson", title: "Function Wizard!", content: "Mastered: functions, parameters, return, scope, defaults, lambda, map!" },
+        { type: "exercise", title: "Multi-Function", content: "Use multiple functions!", question: 'Create two functions: add and multiply. Each takes two numbers. Print the results of calling both with 3 and 4.', answer: 'def add(a, b):\n    return a + b\n\ndef multiply(a, b):\n    return a * b\n\nprint(add(3, 4))\nprint(multiply(3, 4))', check: (v) => (v.match(/def/g)||[]).length >= 2 },
+        { type: "minigame", title: "Final Challenge", gameType: "bugSquash" },
+      ]},
+    ]}]
+  },
+];
+
+const PLACEMENT_TESTS = {
+  0: [],
+  1: [
+    { q: 'What function displays text on screen?', opts: ['print()', 'show()', 'display()', 'write()'], correct: 0 },
+    { q: 'How do you store a value?', opts: ['x == 5', 'x = 5', 'x : 5', 'let x = 5'], correct: 1 },
+    { q: 'What does input() do?', opts: ['Prints text', 'Creates variable', 'Gets text from user', 'Runs math'], correct: 2 },
+    { q: 'What are "strings"?', opts: ['Numbers', 'True/False', 'Text in quotes', 'Lists'], correct: 2 },
+    { q: 'What does print("Hi" + " there") output?', opts: ['Hi there', 'Hi+there', 'Error', '"Hi" "there"'], correct: 0 },
+  ],
+  2: [
+    { q: 'What is 10 % 3?', opts: ['3', '1', '3.33', '0'], correct: 1 },
+    { q: 'Convert "42" to integer?', opts: ['integer("42")', 'int("42")', 'number("42")', 'to_int("42")'], correct: 1 },
+    { q: 'round(3.7) returns?', opts: ['3', '4', '3.7', 'Error'], correct: 1 },
+    { q: 'print(10 > 5) outputs?', opts: ['10', '5', 'True', 'Yes'], correct: 2 },
+    { q: 'float(10) returns?', opts: ['10', '"10"', '10.0', 'Error'], correct: 2 },
+    { q: 'max(3, 7, 1)?', opts: ['3', '7', '1', '11'], correct: 1 },
+  ],
+  3: [
+    { q: 'Second condition keyword?', opts: ['else if', 'elif', 'elseif', 'elsif'], correct: 1 },
+    { q: '"and" means?', opts: ['Join strings', 'Both must be True', 'Either True', 'Negates'], correct: 1 },
+    { q: 'not True equals?', opts: ['True', 'False', 'None', 'Error'], correct: 1 },
+    { q: 'Colon after "if x > 5:" does what?', opts: ['Compares', 'Starts if block', 'Ends statement', 'Nothing'], correct: 1 },
+    { q: 'True is what type?', opts: ['String', 'Integer', 'Boolean', 'Float'], correct: 2 },
+    { q: 'x=10; if x>20: print("big") else: print("small")?', opts: ['big', 'small', 'Error', 'Nothing'], correct: 1 },
+  ],
+  4: [
+    { q: 'range(1, 6) produces?', opts: ['1,2,3,4,5,6', '1,2,3,4,5', '0,1,2,3,4,5', '1,6'], correct: 1 },
+    { q: '"break" does what?', opts: ['Pauses loop', 'Skips iteration', 'Exits loop', 'Restarts'], correct: 2 },
+    { q: '"continue" does what?', opts: ['Exits loop', 'Skips to next', 'Pauses', 'Breaks code'], correct: 1 },
+    { q: 'for i in range(3): for j in range(2): print("*") \u2014 how many stars?', opts: ['3', '5', '6', '2'], correct: 2 },
+    { q: '"while True:" is?', opts: ['Runs once', 'Runs until break', 'Syntax error', 'Runs twice'], correct: 1 },
+    { q: 'What stores multiple items in order?', opts: ['Variable', 'String', 'List', 'Boolean'], correct: 2 },
+  ],
+};
+
+const MINIGAME_DATA = {
+  bugSquash: { title: "Bug Squash! \u{1F41B}", description: "Find and fix the bug!", challenges: [
+    { buggy: 'print("Hello World)', fixed: 'print("Hello World")', hint: "Missing closing quote!" },
+    { buggy: 'for i in range(10)\n    print(i)', fixed: 'for i in range(10):\n    print(i)', hint: "Missing colon!" },
+    { buggy: 'x = 10\nif x = 10:\n    print("ten")', fixed: 'x = 10\nif x == 10:\n    print("ten")', hint: "Use == for comparison!" },
+    { buggy: 'def add(a, b)\n    return a + b', fixed: 'def add(a, b):\n    return a + b', hint: "Missing colon!" },
+  ]},
+  codePuzzle: { title: "Code Puzzle! \u{1F9E9}", description: "Put lines in order!", challenges: [
+    { lines: ['print(greeting)', 'greeting = "Hello"', 'name = "World"', 'greeting = greeting + " " + name'], correct: [1, 2, 3, 0] },
+    { lines: ['print(result)', 'result = x + y', 'x = 10', 'y = 20'], correct: [2, 3, 1, 0] },
+    { lines: ['    print("Even!")', 'num = 4', 'if num % 2 == 0:', 'else:', '    print("Odd!")'], correct: [1, 2, 0, 3, 4] },
+  ]},
+  speedType: { title: "Speed Code! \u26A1", description: "Type code fast!", challenges: [
+    'print("Hello!")', 'x = 42', 'for i in range(5):', 'if x > 10:', 'def greet(name):', 'return a + b', 'while True:', 'nums = [1, 2, 3]',
+  ]},
+};
+
+// ─── Components ───
+function FloatingParticles() {
+  return (<div style={{position:"absolute",inset:0,overflow:"hidden",pointerEvents:"none"}}>{Array.from({length:20},(_,i)=>(<div key={i} style={{position:"absolute",width:4+Math.random()*6,height:4+Math.random()*6,borderRadius:"50%",background:["#FF8FAB","#A29BFE","#FF9F43","#88D8B0","#63B3ED","#F6AD55"][i%6],opacity:0.15+Math.random()*0.25,left:`${Math.random()*100}%`,top:`${Math.random()*100}%`,animation:`floatP ${8+Math.random()*12}s ease-in-out infinite`,animationDelay:`${Math.random()*-10}s`}}/>))}</div>);
+}
+
+function SignInScreen({onSignIn}) {
+  const [name,setName]=useState(""); const [avatar,setAvatar]=useState("\u{1F9D1}\u200D\u{1F4BB}");
+  const avatars=["\u{1F9D1}\u200D\u{1F4BB}","\u{1F469}\u200D\u{1F4BB}","\u{1F9D9}","\u{1F9B8}","\u{1F9D1}\u200D\u{1F680}","\u{1F9B9}","\u{1F916}","\u{1F47E}"];
+  return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"radial-gradient(ellipse at 30% 20%, #1a1147 0%, #0F0E17 50%, #0a1628 100%)",position:"relative",overflow:"hidden"}}>
+      <FloatingParticles/>
+      <div style={{background:"rgba(255,255,255,0.04)",backdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:28,padding:"48px 40px",width:420,maxWidth:"90vw",position:"relative",zIndex:2,boxShadow:"0 30px 80px rgba(0,0,0,0.4)"}}>
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <div style={{fontSize:52,marginBottom:12}}>{"\u{1F3F0}"}</div>
+          <h1 style={{fontSize:32,fontWeight:900,margin:0,background:"linear-gradient(135deg, #FF8FAB, #A29BFE, #63B3ED)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>CodeQuest</h1>
+          <p style={{color:"rgba(255,255,255,0.45)",margin:"8px 0 0",fontSize:14}}>Your adventure in code begins here</p>
+        </div>
+        <div style={{marginBottom:24}}>
+          <label style={{fontSize:12,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:1.5,display:"block",marginBottom:8}}>Choose your avatar</label>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
+            {avatars.map(a=>(<button key={a} onClick={()=>setAvatar(a)} style={{fontSize:28,width:48,height:48,borderRadius:14,border:avatar===a?"2px solid #A29BFE":"2px solid rgba(255,255,255,0.08)",background:avatar===a?"rgba(162,155,254,0.15)":"rgba(255,255,255,0.03)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{a}</button>))}
+          </div>
+        </div>
+        <div style={{marginBottom:28}}>
+          <label style={{fontSize:12,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:1.5,display:"block",marginBottom:8}}>Your Name</label>
+          <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Enter your name..." onKeyDown={e=>e.key==="Enter"&&name.trim()&&onSignIn(name.trim(),avatar)} style={{width:"100%",padding:"14px 18px",borderRadius:14,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.04)",color:"#fff",fontSize:16,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+        </div>
+        <button onClick={()=>name.trim()&&onSignIn(name.trim(),avatar)} disabled={!name.trim()} style={{width:"100%",padding:"16px",borderRadius:14,border:"none",background:name.trim()?"linear-gradient(135deg, #A29BFE, #6C5CE7)":"rgba(255,255,255,0.08)",color:name.trim()?"#fff":"rgba(255,255,255,0.3)",fontSize:16,fontWeight:700,cursor:name.trim()?"pointer":"not-allowed",fontFamily:"inherit"}}>Start Your Quest! {"\u{1F680}"}</button>
+      </div>
+    </div>
+  );
+}
+
+function CharacterBubble({character,message,onClose}) {
+  const c=CHARACTERS[character];
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100,animation:"fadeIn 0.3s"}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#1A1A2E",border:`2px solid ${c.color}40`,borderRadius:24,padding:32,maxWidth:480,width:"90vw",boxShadow:`0 20px 60px ${c.color}20`}}>
+        <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:20}}>
+          <div style={{fontSize:48,width:72,height:72,borderRadius:20,background:`${c.color}15`,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${c.color}30`}}>{c.emoji}</div>
+          <div><div style={{fontWeight:800,fontSize:20,color:c.color}}>{c.name}</div><div style={{fontSize:13,color:"rgba(255,255,255,0.4)"}}>{c.role}</div></div>
+        </div>
+        <p style={{fontSize:16,lineHeight:1.7,color:"rgba(255,255,255,0.85)",margin:0}}>{message}</p>
+        <button onClick={onClose} style={{marginTop:20,padding:"10px 24px",borderRadius:12,border:"none",background:c.color,color:"#fff",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:14}}>Got it! {"\u2728"}</button>
+      </div>
+    </div>
+  );
+}
+
+function PlacementTest({tierIdx,onPass,onFail,onCancel}) {
+  const questions=PLACEMENT_TESTS[tierIdx]||[]; const [cur,setCur]=useState(0); const [answers,setAnswers]=useState([]); const [sel,setSel]=useState(null); const [done,setDone]=useState(false);
+  const tier=CURRICULUM[tierIdx];
+  if (done) {
+    const correct=answers.filter((a,i)=>a===questions[i].correct).length; const passed=correct>=Math.ceil(questions.length*0.7);
+    return (
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",backdropFilter:"blur(12px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}}>
+        <div style={{background:"#1A1A2E",borderRadius:24,padding:40,maxWidth:480,width:"90vw",textAlign:"center",border:`2px solid ${passed?"#48BB78":"#F56565"}40`}}>
+          <div style={{fontSize:64,marginBottom:16}}>{passed?"\u{1F389}":"\u{1F4DA}"}</div>
+          <h2 style={{fontSize:26,fontWeight:800,margin:"0 0 8px",color:passed?"#48BB78":"#F56565"}}>{passed?"Test Passed!":"Not Quite Yet"}</h2>
+          <p style={{color:"rgba(255,255,255,0.6)",marginBottom:8}}>{correct}/{questions.length} correct ({Math.round(correct/questions.length*100)}%)</p>
+          <p style={{color:"rgba(255,255,255,0.4)",marginBottom:24,fontSize:13}}>{passed?`Welcome to ${tier.tier}!`:"Need 70% to skip. Try the earlier lessons!"}</p>
+          <button onClick={passed?onPass:onFail} style={{padding:"14px 32px",borderRadius:14,border:"none",background:passed?"linear-gradient(135deg, #48BB78, #38A169)":"linear-gradient(135deg, #A29BFE, #6C5CE7)",color:"#fff",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:16}}>{passed?`Jump to ${tier.tier}! \u2192`:"Back to Map"}</button>
+        </div>
+      </div>
+    );
+  }
+  const q=questions[cur];
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",backdropFilter:"blur(12px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}}>
+      <div style={{background:"#1A1A2E",borderRadius:24,padding:"36px 32px",maxWidth:540,width:"90vw",border:`2px solid ${tier.tierColor}30`}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+          <div><h2 style={{fontSize:20,fontWeight:800,margin:0,color:tier.tierColor}}>{"\u26A1"} Placement Test</h2><p style={{margin:"4px 0 0",fontSize:13,color:"rgba(255,255,255,0.4)"}}>Skip to: {tier.tier}</p></div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{fontSize:13,color:"rgba(255,255,255,0.4)"}}>{cur+1}/{questions.length}</span><button onClick={onCancel} style={{width:32,height:32,borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:16}}>{"\u2715"}</button></div>
+        </div>
+        <div style={{height:4,borderRadius:2,background:"rgba(255,255,255,0.06)",marginBottom:24}}><div style={{height:"100%",borderRadius:2,background:tier.tierBg,width:`${cur/questions.length*100}%`,transition:"width 0.3s"}}/></div>
+        <p style={{fontSize:17,fontWeight:600,lineHeight:1.6,marginBottom:24,color:"rgba(255,255,255,0.9)"}}>{q.q}</p>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>
+          {q.opts.map((opt,idx)=>(<button key={idx} onClick={()=>setSel(idx)} style={{padding:"14px 18px",borderRadius:14,border:sel===idx?`2px solid ${tier.tierColor}`:"1px solid rgba(255,255,255,0.08)",background:sel===idx?`${tier.tierColor}12`:"rgba(255,255,255,0.03)",color:sel===idx?"#fff":"rgba(255,255,255,0.7)",cursor:"pointer",textAlign:"left",fontFamily:"inherit",fontSize:15,fontWeight:sel===idx?700:400}}><span style={{display:"inline-block",width:28,color:sel===idx?tier.tierColor:"rgba(255,255,255,0.3)",fontWeight:700}}>{String.fromCharCode(65+idx)}.</span>{opt}</button>))}
+        </div>
+        <button onClick={()=>{if(sel===null)return;const na=[...answers,sel];setAnswers(na);setSel(null);if(cur+1<questions.length)setCur(cur+1);else setDone(true);}} disabled={sel===null} style={{width:"100%",padding:"14px",borderRadius:14,border:"none",background:sel!==null?tier.tierBg:"rgba(255,255,255,0.06)",color:sel!==null?"#fff":"rgba(255,255,255,0.3)",fontWeight:700,cursor:sel!==null?"pointer":"not-allowed",fontFamily:"inherit",fontSize:16}}>{cur+1<questions.length?"Next \u2192":"See Results"}</button>
+      </div>
+    </div>
+  );
+}
+
+function CodeTerminal({code,visible,onClose}) {
+  const [userInputs,setUserInputs]=useState([]); const [currentInput,setCurrentInput]=useState(""); const [result,setResult]=useState(null); const [running,setRunning]=useState(false); const [needsInput,setNeedsInput]=useState(false); const inputRef=useRef(null);
+  useEffect(()=>{
+    if(visible){const ic=(code.match(/input\(/g)||[]).length;if(ic>0){setNeedsInput(true);setUserInputs([]);setResult(null);setRunning(false);}else{setNeedsInput(false);setRunning(true);setTimeout(()=>{setResult(runPython(code,[]));setRunning(false);},400);}}
+    else{setResult(null);setRunning(false);setNeedsInput(false);setUserInputs([]);setCurrentInput("");}
+  },[visible,code]);
+  const submitInput=()=>{const ni=[...userInputs,currentInput];setUserInputs(ni);setCurrentInput("");const ic=(code.match(/input\(/g)||[]).length;if(ni.length>=ic){setRunning(true);setNeedsInput(false);setTimeout(()=>{setResult(runPython(code,ni));setRunning(false);},400);}};
+  useEffect(()=>{if(needsInput&&inputRef.current)inputRef.current.focus();},[needsInput,userInputs]);
+  if(!visible)return null;
+  const ic=(code.match(/input\(/g)||[]).length;
+  return (
+    <div style={{background:"#0D1117",borderRadius:16,border:"1px solid rgba(255,255,255,0.1)",overflow:"hidden",marginTop:12,animation:"fadeIn 0.2s"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",background:"rgba(255,255,255,0.04)",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:12,height:12,borderRadius:"50%",background:"#F56565"}}/><div style={{width:12,height:12,borderRadius:"50%",background:"#F6AD55"}}/><div style={{width:12,height:12,borderRadius:"50%",background:"#48BB78"}}/><span style={{marginLeft:8,fontSize:12,color:"rgba(255,255,255,0.4)",fontFamily:"'Fira Code', monospace"}}>output.py</span></div>
+        <button onClick={onClose} style={{background:"transparent",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontSize:16,padding:"2px 6px"}}>{"\u2715"}</button>
+      </div>
+      <div style={{padding:16,fontFamily:"'Fira Code', 'Courier New', monospace",fontSize:14,minHeight:80,maxHeight:250,overflowY:"auto"}}>
+        {running&&<div style={{color:"#F6AD55",display:"flex",alignItems:"center",gap:8}}><span style={{animation:"pulse 1s infinite"}}>{"\u25CF"}</span> Running...</div>}
+        {needsInput&&!result&&<div>
+          <div style={{color:"#48BB78",marginBottom:8}}>{"\u25B6"} Program needs {ic} input{ic>1?"s":""}. Enter input {userInputs.length+1} of {ic}:</div>
+          {userInputs.map((inp,i)=>(<div key={i} style={{color:"rgba(255,255,255,0.5)",marginBottom:4}}><span style={{color:"#63B3ED"}}>input {i+1}:</span> {inp}</div>))}
+          {userInputs.length<ic&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:8}}>
+            <span style={{color:"#48BB78"}}>{">"}</span>
+            <input ref={inputRef} value={currentInput} onChange={e=>setCurrentInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submitInput()} placeholder="Type input..." style={{flex:1,background:"transparent",border:"none",color:"#fff",fontSize:14,fontFamily:"'Fira Code', monospace",outline:"none"}}/>
+            <button onClick={submitInput} style={{padding:"4px 12px",borderRadius:6,background:"rgba(72,187,120,0.2)",border:"1px solid rgba(72,187,120,0.3)",color:"#48BB78",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:600}}>Enter</button>
+          </div>}
+        </div>}
+        {result&&<div>
+          <div style={{color:"#48BB78",marginBottom:8,fontSize:12,opacity:0.7}}>{"\u25B6"} Output:</div>
+          {result.output?<pre style={{margin:0,color:"#E2E8F0",whiteSpace:"pre-wrap",lineHeight:1.7}}>{result.output}</pre>:<span style={{color:"rgba(255,255,255,0.3)",fontStyle:"italic"}}>(no output)</span>}
+          {result.items?.some(i=>i.isError)&&<div style={{marginTop:8,padding:"8px 12px",borderRadius:8,background:"rgba(245,101,101,0.1)",color:"#F56565",fontSize:13}}>{"\u26A0"} Error in your code. Check for typos!</div>}
+        </div>}
+      </div>
+    </div>
+  );
+}
+
+function MiniGame({gameType,onComplete}) {
+  const gd=MINIGAME_DATA[gameType]; const [ci,setCi]=useState(0); const [score,setScore]=useState(0); const [input,setInput]=useState(""); const [fb,setFb]=useState(null); const [po,setPo]=useState([]); const [st,setSt]=useState(null); const [el,setEl]=useState(0); const [done,setDone]=useState(false);
+  useEffect(()=>{if(gameType==="codePuzzle"&&gd.challenges[ci]){const l=gd.challenges[ci].lines.length;setPo([...Array(l).keys()].sort(()=>Math.random()-0.5));}if(gameType==="speedType")setSt(Date.now());},[ci,gameType]);
+  useEffect(()=>{if(gameType==="speedType"&&st&&!done){const t=setInterval(()=>setEl(((Date.now()-st)/1000).toFixed(1)),100);return()=>clearInterval(t);}},[st,gameType,done]);
+  if(done){return(<div style={{textAlign:"center",padding:40}}><div style={{fontSize:64,marginBottom:16}}>{"\u{1F389}"}</div><h2 style={{fontSize:28,fontWeight:800,margin:"0 0 12px"}}>Mini-Game Complete!</h2><p style={{color:"rgba(255,255,255,0.6)",marginBottom:8}}>Score: {score}/{gd.challenges.length}</p>{gameType==="speedType"&&<p style={{color:"rgba(255,255,255,0.5)",marginBottom:24}}>Time: {el}s</p>}<button onClick={()=>onComplete(score)} style={{padding:"14px 32px",borderRadius:14,border:"none",background:"linear-gradient(135deg, #A29BFE, #6C5CE7)",color:"#fff",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:16}}>Continue {"\u2192"}</button></div>);}
+  if(gameType==="bugSquash"){const ch=gd.challenges[ci];return(<div style={{padding:24}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:24}}><h2 style={{fontSize:22,fontWeight:800,margin:0}}>{gd.title}</h2><span style={{color:"rgba(255,255,255,0.4)",fontSize:14}}>{ci+1}/{gd.challenges.length}</span></div><div style={{background:"rgba(245,101,101,0.08)",border:"1px solid rgba(245,101,101,0.2)",borderRadius:14,padding:20,marginBottom:16,fontFamily:"'Fira Code', monospace",fontSize:14,whiteSpace:"pre-wrap"}}><div style={{fontSize:11,color:"#F56565",marginBottom:8,textTransform:"uppercase",letterSpacing:1}}>{"\u{1F41B}"} Buggy:</div>{ch.buggy}</div><textarea value={input} onChange={e=>setInput(e.target.value)} placeholder="Fix the code..." style={{width:"100%",minHeight:100,padding:16,borderRadius:14,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.04)",color:"#fff",fontSize:14,fontFamily:"'Fira Code', monospace",outline:"none",resize:"vertical",boxSizing:"border-box"}}/>{fb&&<div style={{marginTop:12,padding:"10px 16px",borderRadius:10,background:fb==="correct"?"rgba(72,187,120,0.15)":"rgba(245,101,101,0.15)",color:fb==="correct"?"#48BB78":"#F56565",fontSize:14,fontWeight:600}}>{fb==="correct"?"\u2705 Fixed!":"\u274C "+ch.hint}</div>}<div style={{display:"flex",gap:12,marginTop:16}}><button onClick={()=>{const cl=s=>s.replace(/\s+/g," ").trim();if(cl(input)===cl(ch.fixed)){setFb("correct");setScore(s=>s+1);setTimeout(()=>{if(ci+1<gd.challenges.length){setCi(i=>i+1);setInput("");setFb(null);}else setDone(true);},1000);}else setFb("wrong");}} style={{padding:"12px 24px",borderRadius:12,border:"none",background:"linear-gradient(135deg, #48BB78, #38A169)",color:"#fff",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Check</button><button onClick={()=>{if(ci+1<gd.challenges.length){setCi(i=>i+1);setInput("");setFb(null);}else setDone(true);}} style={{padding:"12px 24px",borderRadius:12,border:"1px solid rgba(255,255,255,0.15)",background:"transparent",color:"rgba(255,255,255,0.6)",cursor:"pointer",fontFamily:"inherit"}}>Skip</button></div></div>);}
+  if(gameType==="codePuzzle"){const ch=gd.challenges[ci];const mv=(f,d)=>{const n=[...po];const t=f+d;if(t<0||t>=n.length)return;[n[f],n[t]]=[n[t],n[f]];setPo(n);};return(<div style={{padding:24}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:24}}><h2 style={{fontSize:22,fontWeight:800,margin:0}}>{gd.title}</h2><span style={{color:"rgba(255,255,255,0.4)",fontSize:14}}>{ci+1}/{gd.challenges.length}</span></div><p style={{color:"rgba(255,255,255,0.6)",marginBottom:20}}>Arrange lines in order!</p><div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>{po.map((li,pi)=>(<div key={pi} style={{display:"flex",alignItems:"center",gap:8,background:"rgba(255,255,255,0.04)",borderRadius:12,padding:"10px 14px",border:"1px solid rgba(255,255,255,0.08)"}}><span style={{color:"rgba(255,255,255,0.3)",fontSize:13,width:24}}>{pi+1}.</span><code style={{flex:1,fontFamily:"'Fira Code', monospace",fontSize:14}}>{ch.lines[li]}</code><div style={{display:"flex",flexDirection:"column",gap:2}}><button onClick={()=>mv(pi,-1)} style={{width:24,height:20,borderRadius:4,border:"1px solid rgba(255,255,255,0.15)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:10}}>{"\u25B2"}</button><button onClick={()=>mv(pi,1)} style={{width:24,height:20,borderRadius:4,border:"1px solid rgba(255,255,255,0.15)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:10}}>{"\u25BC"}</button></div></div>))}</div>{fb&&<div style={{marginBottom:16,padding:"10px 16px",borderRadius:10,background:fb==="correct"?"rgba(72,187,120,0.15)":"rgba(245,101,101,0.15)",color:fb==="correct"?"#48BB78":"#F56565",fontSize:14,fontWeight:600}}>{fb==="correct"?"\u2705 Perfect!":"\u274C Try again!"}</div>}<button onClick={()=>{if(po.every((l,p)=>l===ch.correct[p])){setFb("correct");setScore(s=>s+1);setTimeout(()=>{if(ci+1<gd.challenges.length){setCi(i=>i+1);setFb(null);}else setDone(true);},1000);}else setFb("wrong");}} style={{padding:"12px 24px",borderRadius:12,border:"none",background:"linear-gradient(135deg, #A29BFE, #6C5CE7)",color:"#fff",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Check Order</button></div>);}
+  if(gameType==="speedType"){const target=gd.challenges[ci];return(<div style={{padding:24}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:24}}><h2 style={{fontSize:22,fontWeight:800,margin:0}}>{gd.title}</h2><div style={{display:"flex",gap:16}}><span style={{color:"#F6AD55",fontWeight:700}}>{"\u23F1"} {el}s</span><span style={{color:"rgba(255,255,255,0.4)",fontSize:14}}>{ci+1}/{gd.challenges.length}</span></div></div><div style={{background:"rgba(162,155,254,0.08)",border:"1px solid rgba(162,155,254,0.2)",borderRadius:14,padding:20,marginBottom:16,textAlign:"center",fontFamily:"'Fira Code', monospace",fontSize:20}}>{target.split("").map((ch,i)=>(<span key={i} style={{color:i<input.length?(input[i]===ch?"#48BB78":"#F56565"):"rgba(255,255,255,0.6)"}}>{ch}</span>))}</div><input type="text" value={input} onChange={e=>{setInput(e.target.value);if(e.target.value===target){setScore(s=>s+1);setTimeout(()=>{if(ci+1<gd.challenges.length){setCi(i=>i+1);setInput("");}else setDone(true);},500);}}} autoFocus placeholder="Start typing..." style={{width:"100%",padding:"14px 18px",borderRadius:14,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.04)",color:"#fff",fontSize:18,fontFamily:"'Fira Code', monospace",outline:"none",boxSizing:"border-box"}}/></div>);}
+  return null;
+}
+
+function ExerciseView({section,character,onComplete}) {
+  const [code,setCode]=useState(""); const [result,setResult]=useState(null); const [showHint,setShowHint]=useState(false); const [showTerm,setShowTerm]=useState(false);
+  if(section.type==="minigame") return <MiniGame gameType={section.gameType} onComplete={()=>onComplete()}/>;
+  const c=CHARACTERS[character];
+  return (
+    <div style={{padding:"24px",maxWidth:720,margin:"0 auto"}}>
+      <div style={{display:"flex",alignItems:"flex-start",gap:16,marginBottom:24,background:`${c.color}08`,borderRadius:18,padding:20,border:`1px solid ${c.color}15`}}>
+        <div style={{fontSize:40,flexShrink:0}}>{c.emoji}</div>
+        <div><div style={{fontWeight:800,color:c.color,marginBottom:4}}>{c.name} says:</div><p style={{margin:0,color:"rgba(255,255,255,0.8)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{section.content}</p></div>
+      </div>
+      {section.type==="lesson"&&<button onClick={onComplete} style={{padding:"14px 32px",borderRadius:14,border:"none",background:`linear-gradient(135deg, ${c.color}, ${c.color}CC)`,color:"#fff",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:16,width:"100%"}}>I understand! Continue {"\u2192"}</button>}
+      {section.type==="exercise"&&<>
+        <div style={{background:"rgba(255,255,255,0.03)",borderRadius:14,padding:20,marginBottom:16,border:"1px solid rgba(255,255,255,0.06)"}}>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:1.5,marginBottom:10}}>{"\u{1F4DD}"} Challenge</div>
+          <pre style={{margin:0,color:"rgba(255,255,255,0.75)",fontFamily:"'Fira Code', monospace",fontSize:14,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{section.question}</pre>
+        </div>
+        <div style={{marginBottom:8,display:"flex",justifyContent:"space-between"}}>
+          <span style={{fontSize:12,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:1.5}}>{"\u{1F4BB}"} Your Code</span>
+          <button onClick={()=>setShowHint(!showHint)} style={{padding:"4px 12px",borderRadius:8,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontFamily:"inherit",fontSize:12}}>{showHint?"Hide":"Show"} Hint</button>
+        </div>
+        {showHint&&<div style={{background:"rgba(246,173,85,0.08)",border:"1px solid rgba(246,173,85,0.2)",borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:13,color:"#F6AD55",fontFamily:"'Fira Code', monospace",whiteSpace:"pre-wrap"}}>{section.answer}</div>}
+        <textarea value={code} onChange={e=>setCode(e.target.value)} placeholder="Write your code here..." style={{width:"100%",minHeight:140,padding:16,borderRadius:14,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(0,0,0,0.3)",color:"#48BB78",fontSize:15,fontFamily:"'Fira Code', 'Courier New', monospace",outline:"none",resize:"vertical",boxSizing:"border-box",lineHeight:1.8}}/>
+        <CodeTerminal code={code} visible={showTerm} onClose={()=>setShowTerm(false)}/>
+        {result&&!showTerm&&<div style={{marginTop:12,padding:"12px 16px",borderRadius:12,background:result==="pass"?"rgba(72,187,120,0.12)":"rgba(245,101,101,0.12)",border:`1px solid ${result==="pass"?"rgba(72,187,120,0.3)":"rgba(245,101,101,0.3)"}`,color:result==="pass"?"#48BB78":"#F56565",fontSize:15,fontWeight:700}}>{result==="pass"?"\u2705 Excellent! Code passes!":"\u274C Not quite. Check hint and try again!"}</div>}
+        <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
+          <button onClick={()=>setShowTerm(!showTerm)} style={{flex:"1 1 auto",padding:"14px 16px",borderRadius:14,border:showTerm?"1px solid rgba(99,179,237,0.3)":"1px solid rgba(255,255,255,0.1)",background:showTerm?"rgba(99,179,237,0.15)":"linear-gradient(135deg, #2D3748, #1A202C)",color:showTerm?"#63B3ED":"#E2E8F0",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}><span>{"\u{1F5A5}\uFE0F"}</span>{showTerm?"Hide Output":"\u25B6 Run Code"}</button>
+          <button onClick={()=>{if(section.check&&section.check(code)){setResult("pass");setShowTerm(true);setTimeout(()=>onComplete(),1500);}else setResult("fail");}} style={{flex:"1 1 auto",padding:"14px 16px",borderRadius:14,border:"none",background:"linear-gradient(135deg, #48BB78, #38A169)",color:"#fff",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}><span>{"\u2713"}</span> Check & Submit</button>
+          <button onClick={onComplete} style={{padding:"14px 16px",borderRadius:14,border:"1px solid rgba(255,255,255,0.12)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer",fontFamily:"inherit",fontSize:14}}>Skip {"\u2192"}</button>
+        </div>
+      </>}
+    </div>
+  );
+}
+
+function StoneDetailView({stone,character,progress,onSectionComplete,onBack}) {
+  const [as,setAs]=useState(null);
+  if(as!==null) return <ExerciseView section={stone.sections[as]} character={character} onComplete={()=>{onSectionComplete(as);if(as+1<stone.sections.length)setAs(as+1);else setAs(null);}}/>;
+  const c=CHARACTERS[character]; const cc=progress.filter(Boolean).length;
+  return (
+    <div style={{padding:24,maxWidth:560,margin:"0 auto"}}>
+      <button onClick={onBack} style={{padding:"8px 16px",borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer",fontFamily:"inherit",fontSize:14,marginBottom:24}}>{"\u2190"} Back to Map</button>
+      <div style={{textAlign:"center",marginBottom:32}}><div style={{fontSize:44,marginBottom:8}}>{c.emoji}</div><h2 style={{fontSize:26,fontWeight:800,margin:"0 0 4px"}}>{stone.title}</h2><div style={{display:"inline-block",padding:"4px 14px",borderRadius:99,background:`${c.color}15`,color:c.color,fontSize:13,fontWeight:600}}>{cc}/{stone.sections.length} completed</div></div>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        {stone.sections.map((sec,idx)=>{const ic=progress[idx]; const isNext=!ic&&progress.slice(0,idx).every(Boolean); const isLocked=!ic&&!isNext&&idx>0;
+          return (<button key={idx} onClick={()=>!isLocked&&setAs(idx)} disabled={isLocked} style={{display:"flex",alignItems:"center",gap:16,padding:"18px 20px",borderRadius:16,border:isNext?`2px solid ${c.color}`:"1px solid rgba(255,255,255,0.08)",background:ic?`${c.color}10`:isNext?`${c.color}08`:"rgba(255,255,255,0.02)",cursor:isLocked?"not-allowed":"pointer",opacity:isLocked?0.4:1,textAlign:"left",fontFamily:"inherit",width:"100%",boxSizing:"border-box",transition:"all 0.2s"}}>
+            <div style={{width:42,height:42,borderRadius:12,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",background:ic?c.color:"rgba(255,255,255,0.06)",color:ic?"#fff":"rgba(255,255,255,0.5)",fontSize:ic?18:14,fontWeight:700}}>{ic?"\u2713":isLocked?"\u{1F512}":idx+1}</div>
+            <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15,color:ic?c.color:"#fff",marginBottom:2}}>{sec.title}</div><div style={{fontSize:12,color:"rgba(255,255,255,0.4)"}}>{sec.type==="lesson"?"\u{1F4D6} Lesson":sec.type==="exercise"?"\u{1F4BB} Exercise":"\u{1F3AE} Mini-Game"}</div></div>
+            {isNext&&<span style={{color:c.color,fontSize:13,fontWeight:700}}>START {"\u2192"}</span>}
+          </button>);
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WorldMap({user,progress,onSelectStone,onJumpTo,onBuild}) {
+  const [st,setSt]=useState(0); const [su,setSu]=useState(0); const [greeting,setGreeting]=useState(null); const visitedRef=useRef({});
+  const tier=CURRICULUM[st]; const unit=tier.units[su]; const char=CHARACTERS[tier.character];
+  useEffect(()=>{const key=`${st}-${su}`;if(!visitedRef.current[key]){visitedRef.current[key]=true;setGreeting({character:tier.character,message:`Welcome to ${tier.tier}, ${user.name}! I'm ${char.name}, your guide for "${unit.title}". ${unit.desc}! Let's go! \u{1F389}`});}},[st,su]);
+  const gsp=(t,u,s)=>progress[`${t}-${u}-${s}`]||[];
+  const isc=(t,u,s)=>{const p=gsp(t,u,s);const st2=CURRICULUM[t].units[u].stones[s];return p.length===st2.sections.length&&p.every(Boolean);};
+  const isu=(t,u,s)=>{if(s===0&&u===0&&t===0)return true;if(s>0)return isc(t,u,s-1);if(u>0){const pu=CURRICULUM[t].units[u-1];return isc(t,u-1,pu.stones.length-1);}if(t>0){const pt=CURRICULUM[t-1];const lu=pt.units[pt.units.length-1];return isc(t-1,pt.units.length-1,lu.stones.length-1);}return false;};
+  const tc=Object.values(progress).reduce((s,a)=>s+a.filter(Boolean).length,0);
+  return (
+    <div style={{minHeight:"100vh",background:"#0F0E17"}}>
+      {greeting&&<CharacterBubble character={greeting.character} message={greeting.message} onClose={()=>setGreeting(null)}/>}
+      <div style={{padding:"16px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid rgba(255,255,255,0.06)",background:"rgba(255,255,255,0.02)",position:"sticky",top:0,zIndex:50,backdropFilter:"blur(12px)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}><span style={{fontSize:28}}>{"\u{1F3F0}"}</span><span style={{fontSize:20,fontWeight:900,background:"linear-gradient(135deg, #FF8FAB, #A29BFE)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>CodeQuest</span></div>
+        <div style={{display:"flex",alignItems:"center",gap:12}}><button onClick={onBuild} style={{padding:"8px 16px",borderRadius:12,border:"none",background:"linear-gradient(135deg, #48BB78, #38A169)",color:"#fff",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13,display:"flex",alignItems:"center",gap:6}}>{"\u{1F6E0}\uFE0F"} Build</button><div style={{padding:"6px 14px",borderRadius:99,background:"rgba(255,255,255,0.06)",fontSize:13,color:"rgba(255,255,255,0.6)"}}>{"\u2B50"} {tc}</div><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:24}}>{user.avatar}</span><span style={{fontWeight:700,fontSize:14}}>{user.name}</span></div></div>
+      </div>
+      <div style={{display:"flex",gap:4,padding:"16px 24px",overflowX:"auto",borderBottom:"1px solid rgba(255,255,255,0.04)",flexWrap:"wrap"}}>
+        {CURRICULUM.map((t,i)=>{const cur=st===i;const ul=i===0||isu(i,0,0)||Object.keys(progress).some(k=>k.startsWith(`${i}-`));return(
+          <div key={i} style={{display:"flex",gap:4,alignItems:"center"}}>
+            <button onClick={()=>{if(ul){setSt(i);setSu(0);}}} style={{padding:"10px 20px",borderRadius:12,border:"none",background:cur?t.tierBg:"rgba(255,255,255,0.04)",color:cur?"#fff":ul?"rgba(255,255,255,0.45)":"rgba(255,255,255,0.15)",fontWeight:700,cursor:ul?"pointer":"not-allowed",fontFamily:"inherit",fontSize:13,whiteSpace:"nowrap",opacity:ul?1:0.5}}>{t.tier}</button>
+            {!ul&&i>0&&<button onClick={()=>onJumpTo(i)} title={`Test to skip to ${t.tier}`} style={{padding:"6px 10px",borderRadius:8,border:`1px dashed ${t.tierColor}50`,background:`${t.tierColor}08`,color:t.tierColor,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:4}}>{"\u26A1"} Jump Here</button>}
+          </div>
+        );})}
+      </div>
+      <div style={{padding:"24px 24px 8px",maxWidth:600,margin:"0 auto"}}><div style={{background:`${tier.tierColor}08`,borderRadius:20,padding:24,border:`1px solid ${tier.tierColor}15`,textAlign:"center"}}><div style={{fontSize:40,marginBottom:8}}>{char.emoji}</div><h2 style={{margin:"0 0 4px",fontSize:24,fontWeight:800}}>{unit.title}</h2><p style={{margin:0,color:"rgba(255,255,255,0.5)",fontSize:14}}>{unit.desc}</p></div></div>
+      <div style={{padding:"24px 24px 60px",maxWidth:600,margin:"0 auto"}}><div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
+        {unit.stones.map((stone,idx)=>{const comp=isc(st,su,idx);const ul=isu(st,su,idx);const sp=gsp(st,su,idx);const dn=sp.filter(Boolean).length;const ev=idx%2===0;return(
+          <div key={idx} style={{position:"relative",width:"100%",display:"flex",flexDirection:"column",alignItems:"center"}}>
+            {idx>0&&<div style={{width:3,height:40,background:comp||ul?`linear-gradient(to bottom, ${tier.tierColor}60, ${tier.tierColor}30)`:"rgba(255,255,255,0.06)"}}/>}
+            <div style={{display:"flex",alignItems:"center",gap:20,width:"100%",flexDirection:ev?"row":"row-reverse"}}>
+              <div style={{flex:1}}/>
+              <button onClick={()=>ul&&onSelectStone(st,su,idx)} disabled={!ul} style={{width:80,height:80,borderRadius:"50%",border:"none",background:comp?`linear-gradient(135deg, ${tier.tierColor}, ${tier.tierColor}CC)`:ul?`radial-gradient(circle, ${tier.tierColor}25, ${tier.tierColor}08)`:"rgba(255,255,255,0.03)",cursor:ul?"pointer":"not-allowed",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",boxShadow:comp?`0 0 30px ${tier.tierColor}40`:ul?`0 0 20px ${tier.tierColor}15`:"none",transition:"all 0.3s",outline:ul&&!comp?`2px dashed ${tier.tierColor}40`:"none",outlineOffset:4}}>
+                {comp?<span style={{fontSize:28}}>{"\u2B50"}</span>:!ul?<span style={{fontSize:24,opacity:0.3}}>{"\u{1F512}"}</span>:<><span style={{fontSize:18,fontWeight:800,color:tier.tierColor}}>{idx+1}</span><span style={{fontSize:8,color:"rgba(255,255,255,0.4)"}}>{dn}/{stone.sections.length}</span></>}
+              </button>
+              <div style={{flex:1,textAlign:ev?"left":"right"}}><div style={{fontWeight:700,fontSize:14,color:ul?"#fff":"rgba(255,255,255,0.25)"}}>{stone.title}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:2}}>{stone.sections.length} sections{stone.sections.some(s=>s.type==="minigame")?" \u00B7 \u{1F3AE}":""}</div></div>
+            </div>
+          </div>
+        );})}
+      </div></div>
+    </div>
+  );
+}
+
+function BuildMode({user, onBack}) {
+  const [code, setCode] = useState("# Welcome to Build Mode!\n# Write any Python code here and hit Run.\n\nprint(\"Hello, world!\")\n");
+  const [userInputs, setUserInputs] = useState([]);
+  const [currentInput, setCurrentInput] = useState("");
+  const [result, setResult] = useState(null);
+  const [running, setRunning] = useState(false);
+  const [needsInput, setNeedsInput] = useState(false);
+  const [savedProjects, setSavedProjects] = useState([]);
+  const [projectName, setProjectName] = useState("My Project");
+  const [showSaved, setShowSaved] = useState(false);
+  const inputRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  const handleRun = () => {
+    const ic = (code.match(/input\(/g) || []).length;
+    if (ic > 0) {
+      setNeedsInput(true);
+      setUserInputs([]);
+      setResult(null);
+      setRunning(false);
+    } else {
+      setNeedsInput(false);
+      setRunning(true);
+      setTimeout(() => {
+        setResult(runPython(code, []));
+        setRunning(false);
+      }, 300);
+    }
+  };
+
+  const submitInput = () => {
+    const ni = [...userInputs, currentInput];
+    setUserInputs(ni);
+    setCurrentInput("");
+    const ic = (code.match(/input\(/g) || []).length;
+    if (ni.length >= ic) {
+      setRunning(true);
+      setNeedsInput(false);
+      setTimeout(() => {
+        setResult(runPython(code, ni));
+        setRunning(false);
+      }, 300);
+    }
+  };
+
+  const handleSave = () => {
+    const project = { name: projectName, code, date: new Date().toLocaleString() };
+    setSavedProjects(prev => {
+      const existing = prev.findIndex(p => p.name === projectName);
+      if (existing >= 0) { const n = [...prev]; n[existing] = project; return n; }
+      return [...prev, project];
+    });
+  };
+
+  const handleLoad = (project) => {
+    setCode(project.code);
+    setProjectName(project.name);
+    setShowSaved(false);
+    setResult(null);
+  };
+
+  const handleClear = () => {
+    setCode("");
+    setResult(null);
+    setNeedsInput(false);
+    setUserInputs([]);
+    if (textareaRef.current) textareaRef.current.focus();
+  };
+
+  useEffect(() => { if (needsInput && inputRef.current) inputRef.current.focus(); }, [needsInput, userInputs]);
+
+  const ic = (code.match(/input\(/g) || []).length;
+  const lineCount = code.split("\n").length;
+
+  return (
+    <div style={{minHeight:"100vh",background:"#0F0E17"}}>
+      <div style={{padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid rgba(255,255,255,0.06)",background:"rgba(255,255,255,0.02)",position:"sticky",top:0,zIndex:50,backdropFilter:"blur(12px)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <button onClick={onBack} style={{padding:"8px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.1)",background:"transparent",color:"rgba(255,255,255,0.5)",cursor:"pointer",fontFamily:"inherit",fontSize:13}}>{"\u2190"} Map</button>
+          <span style={{fontSize:20,fontWeight:900,background:"linear-gradient(135deg, #48BB78, #38A169)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{"\u{1F6E0}\uFE0F"} Build Mode</span>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:22}}>{user.avatar}</span>
+          <span style={{fontWeight:700,fontSize:14}}>{user.name}</span>
+        </div>
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",maxWidth:800,margin:"0 auto",padding:"20px 24px",gap:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          <input value={projectName} onChange={e=>setProjectName(e.target.value)} style={{flex:"1 1 180px",padding:"10px 14px",borderRadius:12,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.04)",color:"#fff",fontSize:15,fontWeight:700,fontFamily:"inherit",outline:"none"}} />
+          <button onClick={handleSave} style={{padding:"10px 18px",borderRadius:12,border:"none",background:"linear-gradient(135deg, #A29BFE, #6C5CE7)",color:"#fff",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13,display:"flex",alignItems:"center",gap:6}}>{"\u{1F4BE}"} Save</button>
+          <button onClick={()=>setShowSaved(!showSaved)} style={{padding:"10px 18px",borderRadius:12,border:"1px solid rgba(255,255,255,0.1)",background:showSaved?"rgba(162,155,254,0.15)":"transparent",color:showSaved?"#A29BFE":"rgba(255,255,255,0.5)",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13,display:"flex",alignItems:"center",gap:6}}>{"\u{1F4C2}"} Projects{savedProjects.length>0?` (${savedProjects.length})`:""}</button>
+        </div>
+
+        {showSaved && (
+          <div style={{background:"rgba(255,255,255,0.03)",borderRadius:16,border:"1px solid rgba(255,255,255,0.08)",padding:16}}>
+            {savedProjects.length === 0 ? (
+              <p style={{color:"rgba(255,255,255,0.3)",textAlign:"center",margin:0,padding:16,fontSize:14}}>No saved projects yet. Write some code and hit Save!</p>
+            ) : (
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {savedProjects.map((p, i) => (
+                  <button key={i} onClick={()=>handleLoad(p)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderRadius:12,border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.02)",cursor:"pointer",fontFamily:"inherit",textAlign:"left",color:"#fff",width:"100%"}}>
+                    <div><div style={{fontWeight:700,fontSize:14}}>{p.name}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:2}}>{p.date}</div></div>
+                    <span style={{color:"#A29BFE",fontSize:12,fontWeight:700}}>Open {"\u2192"}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{background:"#0D1117",borderRadius:16,border:"1px solid rgba(255,255,255,0.1)",overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",background:"rgba(255,255,255,0.04)",borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:12,height:12,borderRadius:"50%",background:"#F56565"}}/>
+              <div style={{width:12,height:12,borderRadius:"50%",background:"#F6AD55"}}/>
+              <div style={{width:12,height:12,borderRadius:"50%",background:"#48BB78"}}/>
+              <span style={{marginLeft:8,fontSize:12,color:"rgba(255,255,255,0.4)",fontFamily:"'Fira Code', monospace"}}>build.py</span>
+            </div>
+            <span style={{fontSize:11,color:"rgba(255,255,255,0.25)"}}>{lineCount} lines</span>
+          </div>
+          <div style={{position:"relative"}}>
+            <div style={{position:"absolute",left:0,top:0,bottom:0,width:44,background:"rgba(255,255,255,0.02)",borderRight:"1px solid rgba(255,255,255,0.04)",padding:"16px 0",fontFamily:"'Fira Code', monospace",fontSize:14,lineHeight:1.8,color:"rgba(255,255,255,0.15)",textAlign:"right",pointerEvents:"none",userSelect:"none"}}>
+              {code.split("\n").map((_, i) => (<div key={i} style={{paddingRight:8}}>{i + 1}</div>))}
+            </div>
+            <textarea ref={textareaRef} value={code} onChange={e => setCode(e.target.value)} spellCheck={false} style={{width:"100%",minHeight:260,padding:"16px 16px 16px 52px",border:"none",background:"transparent",color:"#48BB78",fontSize:14,fontFamily:"'Fira Code', 'Courier New', monospace",outline:"none",resize:"vertical",boxSizing:"border-box",lineHeight:1.8,tabSize:4}} onKeyDown={e => {
+              if (e.key === "Tab") {
+                e.preventDefault();
+                const start = e.target.selectionStart;
+                const end = e.target.selectionEnd;
+                setCode(code.substring(0, start) + "    " + code.substring(end));
+                setTimeout(() => { e.target.selectionStart = e.target.selectionEnd = start + 4; }, 0);
+              }
+            }} />
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+          <button onClick={handleRun} style={{flex:"1 1 auto",padding:"14px 24px",borderRadius:14,border:"none",background:"linear-gradient(135deg, #48BB78, #38A169)",color:"#fff",fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>{"\u25B6"} Run Code</button>
+          <button onClick={handleClear} style={{padding:"14px 20px",borderRadius:14,border:"1px solid rgba(255,255,255,0.12)",background:"transparent",color:"rgba(255,255,255,0.5)",fontWeight:600,cursor:"pointer",fontFamily:"inherit",fontSize:14}}>Clear</button>
+        </div>
+
+        <div style={{background:"#0D1117",borderRadius:16,border:"1px solid rgba(255,255,255,0.1)",overflow:"hidden"}}>
+          <div style={{padding:"10px 16px",background:"rgba(255,255,255,0.04)",borderBottom:"1px solid rgba(255,255,255,0.06)",display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:12,color:"rgba(255,255,255,0.4)",fontFamily:"'Fira Code', monospace"}}>{"\u25B6"} Output</span>
+          </div>
+          <div style={{padding:16,fontFamily:"'Fira Code', 'Courier New', monospace",fontSize:14,minHeight:80,maxHeight:300,overflowY:"auto"}}>
+            {!running && !result && !needsInput && <span style={{color:"rgba(255,255,255,0.2)",fontStyle:"italic"}}>Hit "Run Code" to see your output here...</span>}
+            {running && <div style={{color:"#F6AD55",display:"flex",alignItems:"center",gap:8}}><span style={{animation:"pulse 1s infinite"}}>{"\u25CF"}</span> Running...</div>}
+            {needsInput && !result && <div>
+              <div style={{color:"#48BB78",marginBottom:8}}>{"\u25B6"} Program needs {ic} input{ic > 1 ? "s" : ""}. Enter input {userInputs.length + 1} of {ic}:</div>
+              {userInputs.map((inp, i) => (<div key={i} style={{color:"rgba(255,255,255,0.5)",marginBottom:4}}><span style={{color:"#63B3ED"}}>input {i + 1}:</span> {inp}</div>))}
+              {userInputs.length < ic && <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8}}>
+                <span style={{color:"#48BB78"}}>{">"}</span>
+                <input ref={inputRef} value={currentInput} onChange={e => setCurrentInput(e.target.value)} onKeyDown={e => e.key === "Enter" && submitInput()} placeholder="Type input..." style={{flex:1,background:"transparent",border:"none",color:"#fff",fontSize:14,fontFamily:"'Fira Code', monospace",outline:"none"}} />
+                <button onClick={submitInput} style={{padding:"4px 12px",borderRadius:6,background:"rgba(72,187,120,0.2)",border:"1px solid rgba(72,187,120,0.3)",color:"#48BB78",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:600}}>Enter</button>
+              </div>}
+            </div>}
+            {result && <div>
+              {result.output ? <pre style={{margin:0,color:"#E2E8F0",whiteSpace:"pre-wrap",lineHeight:1.7}}>{result.output}</pre> : <span style={{color:"rgba(255,255,255,0.3)",fontStyle:"italic"}}>(no output)</span>}
+              {result.items?.some(i => i.isError) && <div style={{marginTop:8,padding:"8px 12px",borderRadius:8,background:"rgba(245,101,101,0.1)",color:"#F56565",fontSize:13}}>{"\u26A0"} Error in your code. Check for typos!</div>}
+            </div>}
+          </div>
+        </div>
+
+        <div style={{background:"rgba(72,187,120,0.06)",borderRadius:16,border:"1px solid rgba(72,187,120,0.12)",padding:20}}>
+          <div style={{fontWeight:800,color:"#48BB78",marginBottom:8,fontSize:14}}>{"\u{1F4A1}"} Build Mode Tips</div>
+          <div style={{color:"rgba(255,255,255,0.5)",fontSize:13,lineHeight:1.8}}>
+            This is your sandbox! Write any Python code you want. Try making a calculator, a quiz game, a greeting program, or anything you can dream up. Use what you have learned from the lessons, or experiment with new ideas. Press Tab to indent your code.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [user,setUser]=useState(null); const [progress,setProgress]=useState({}); const [activeStone,setActiveStone]=useState(null); const [placementTest,setPlacementTest]=useState(null); const [buildMode,setBuildMode]=useState(false);
+  const handleSC=(si)=>{if(!activeStone)return;const k=`${activeStone.tierIdx}-${activeStone.unitIdx}-${activeStone.stoneIdx}`;setProgress(p=>{const a=[...(p[k]||[])];a[si]=true;return{...p,[k]:a};});};
+  const handleTestPass=(ti)=>{for(let t=0;t<ti;t++)for(let u=0;u<CURRICULUM[t].units.length;u++)for(let s=0;s<CURRICULUM[t].units[u].stones.length;s++){const k=`${t}-${u}-${s}`;const sc=CURRICULUM[t].units[u].stones[s].sections.length;setProgress(p=>({...p,[k]:Array(sc).fill(true)}));}setPlacementTest(null);};
+  const gs=`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fira+Code:wght@400;500;700&display=swap');*{margin:0;padding:0;box-sizing:border-box;}@keyframes floatP{0%,100%{transform:translateY(0) translateX(0);}25%{transform:translateY(-30px) translateX(15px);}50%{transform:translateY(-10px) translateX(-10px);}75%{transform:translateY(-40px) translateX(5px);}}@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px;}input::placeholder,textarea::placeholder{color:rgba(255,255,255,0.25);}`;
+  const appS={fontFamily:"'Nunito', sans-serif",minHeight:"100vh",background:"#0F0E17",color:"#FFFFFE"};
+  if(!user)return(<div style={appS}><style>{gs}</style><SignInScreen onSignIn={(n,a)=>setUser({name:n,avatar:a})}/></div>);
+  return (
+    <div style={appS}><style>{gs}</style>
+      {placementTest!==null&&<PlacementTest tierIdx={placementTest} onPass={()=>handleTestPass(placementTest)} onFail={()=>setPlacementTest(null)} onCancel={()=>setPlacementTest(null)}/>}
+      {buildMode?<BuildMode user={user} onBack={()=>setBuildMode(false)}/>
+      :activeStone?<StoneDetailView stone={CURRICULUM[activeStone.tierIdx].units[activeStone.unitIdx].stones[activeStone.stoneIdx]} character={CURRICULUM[activeStone.tierIdx].character} progress={progress[`${activeStone.tierIdx}-${activeStone.unitIdx}-${activeStone.stoneIdx}`]||[]} onSectionComplete={handleSC} onBack={()=>setActiveStone(null)}/>
+      :<WorldMap user={user} progress={progress} onSelectStone={(t,u,s)=>setActiveStone({tierIdx:t,unitIdx:u,stoneIdx:s})} onJumpTo={ti=>setPlacementTest(ti)} onBuild={()=>setBuildMode(true)}/>}
+    </div>
+  );
+}
+
+
+ReactDOM.render(<App />, document.getElementById("root"));
+  </script>
 </body>
 </html>
